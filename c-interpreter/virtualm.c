@@ -37,10 +37,25 @@ Value pop()
 }
 /* end of stack operations */
 
+/* starting point of the compiler */
 InterpretResult interpret(const char* source)
 {
-	compile(source);
-	return INTERPRET_OK;
+	Chunk chunk;			// declare chunk/bytecode for the compiler
+	initChunk(&chunk);		// initialize the chunk
+
+	if (!compile(source, &chunk))		// if compilation fails
+	{
+		freeChunk(&chunk);
+		return INTERPRET_COMPILE_ERROR;
+	}
+
+	vm.chunk = &chunk;			// set vm chunk
+	vm.ip = vm.chunk->code;		// assign pointer to the start of the chunk
+
+	InterpretResult result = run();
+
+	freeChunk(&chunk);
+	return result;
 }
 
 
