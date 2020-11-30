@@ -19,7 +19,10 @@ typedef enum
 	OP_NEGATE,		// operand to negate, utilized in virtual machine
 
 	// binary operators
-
+	OP_ADD,
+	OP_SUBTRACT,
+	OP_MULTIPLY,
+	OP_DIVIDE,
 
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum

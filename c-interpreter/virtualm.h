@@ -31,7 +31,8 @@ void initVM();
 void freeVM();
 
 // interpret/run chunks and return enum
-InterpretResult interpret(Chunk* chunk);
+// changed from interpreting chunks to interpreting strings
+InterpretResult interpret(const char* source);
 
 // stack operations to determine order of value manipulations
 void push(Value value);

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "compiler.h"
 #include "debug.h"
 #include "virtualm.h"
 #include <stdio.h>
@@ -36,19 +37,15 @@ Value pop()
 }
 /* end of stack operations */
 
-InterpretResult interpret(Chunk* chunk)
+InterpretResult interpret(const char* source)
 {
-	vm.chunk = chunk;				// vm object above
-	vm.ip = vm.chunk->code;			// vm works by running through the bytecode, to keep track of where it is, we use a uint8_t array
-									// vm.ip store the location of the current insruction
-									// this is a BTYE POINTER; we point it to the NEXT code of instruction(not the code it is currently running on)
-
-
-	return run();
+	compile(source);
+	return INTERPRET_OK;
 }
 
 
 // run the chunk
+// most IMPORTANT part of the interpreter
 static InterpretResult run()		// static means the scope of the function is only to this file
 {
 
@@ -64,6 +61,17 @@ READ_CONSTANT:
 #define READ_BYTE() (*vm.ip++)		
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])	
 
+// MACRO for binary operations
+// take two last constants, and push ONE final value doing the operations on both of them
+// this macro needs to expand to a series of statements, read a-virtual-machine for more info, this is a macro trick or a SCOPE BLOCK
+// pass in an OPERAOTR as a MACRO
+#define BINARY_OP(op)	\
+	do { \
+		double b = pop();	\
+		double a = pop();	\
+		push(a op b);	\
+	} while(false)	\
+
 	for (;;)
 	{
 	// disassembleInstruction needs an byte offset, do pointer math to convert ip back to relative offset
@@ -78,6 +86,7 @@ READ_CONSTANT:
 		-> you can use operands like < > to tell compare how deep are you in the array
 		*/
 
+		// prints every existing value in the stack
 		for (Value* slot = vm.stack; slot < vm.stackTop; slot++)
 		{
 			printf("[ ");
@@ -91,15 +100,20 @@ READ_CONSTANT:
 		{
 			case OP_CONSTANT: 
 			{
-				Value constant = READ_CONSTANT();
+				// function is smart; chunk advances by 1 on first read, then in the READ_CONSTANT() macro it reads again which advances by 1 and returns the INDEX
+				Value constant = READ_CONSTANT();		// READ the next line, which is the INDEX of the constant in the constants array
 				push(constant);		// push to stack
 				break;			// break from the switch
 			}
-			case OP_NEGATE: 
-			{
-				push(-pop());		// negates the last element of the stack
-				break;
-			}
+			// unary opcode
+			case OP_NEGATE: push(-pop()); break;  // negates the last element of the stack
+			
+			// binary opcode
+			case OP_ADD: BINARY_OP(+); break;
+			case OP_SUBTRACT: BINARY_OP(-); break;
+			case OP_MULTIPLY: BINARY_OP(*); break;
+			case OP_DIVIDE: BINARY_OP(/); break;
+
 			case OP_RETURN:				
 			{
 				// ACTUAL PRINTING IS DONE HERE
@@ -113,4 +127,5 @@ READ_CONSTANT:
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef BINARY_OP
 }

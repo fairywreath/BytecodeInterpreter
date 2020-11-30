@@ -114,7 +114,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -140,17 +140,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="chunk.c" />
+    <ClCompile Include="compiler.c" />
     <ClCompile Include="debug.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="memory.c" />
+    <ClCompile Include="scanner.c" />
     <ClCompile Include="value.c" />
     <ClCompile Include="virtualm.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="chunk.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="compiler.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="memory.h" />
+    <ClInclude Include="scanner.h" />
     <ClInclude Include="value.h" />
     <ClInclude Include="virtualm.h" />
   </ItemGroup>

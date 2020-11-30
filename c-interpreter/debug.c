@@ -42,8 +42,21 @@ int disassembleInstruction(Chunk* chunk, int offset)
 		return simpleInstruction("OP_RETURN", offset);		// dispatch to a utility function to display it
 	case OP_CONSTANT:
 		return constantInstruction("OP_CONSTANT", chunk, offset);		// pass in chunk to get ValueArray element
+	
+	// unary
 	case OP_NEGATE:
 		return simpleInstruction("OP_NEGATE", offset);
+	
+	// binary
+	case OP_ADD:
+		return simpleInstruction("OP_ADD", offset);
+	case OP_SUBTRACT:
+		return simpleInstruction("OP_MINUS", offset);
+	case OP_MULTIPLY:
+		return simpleInstruction("OP_MULTIPLY", offset);
+	case OP_DIVIDE:
+		return simpleInstruction("OP_DIVIDE", offset);
+
 	default:
 		printf("Unknown opcode %d\n", instruction);
 		return offset + 1;
