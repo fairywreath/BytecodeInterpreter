@@ -1,0 +1,52 @@
+// 'chunks' of bytecode
+#ifndef chunk_h
+#define chunk_h
+
+#include "common.h"
+#include "value.h"
+
+// in bytecode format, each instruction has a one-byte operation code(opcode)
+// the number controls what kind of instruction we're dealing with- add, subtract, etc
+// typedef enums are bytes apparently
+// these are INSTRUCTIONS 
+typedef enum
+{
+	OP_CONSTANT,	// chunk needs to know when to produce constants and print them in the right order
+					// they have operands, to eg. identify which variable to load
+					// OP_CONSTANT take up 2 bytes, one is the opcode itself and the other the constant index
+	
+	// unary operators
+	OP_NEGATE,		// operand to negate, utilized in virtual machine
+
+	// binary operators
+
+
+	OP_RETURN,		// means return from current function
+} OpCode;			// basically a typdef call to an enum
+					// in C, you cannot have enums called simply by their rvalue 'string' names, use typdef to define them
+
+
+/* dynamic array for bytecode */
+// btyecode is a series of instructions, this is a struct to hold instructions
+// create own dynamic array
+typedef struct
+{
+	int count;					// current size
+	int capacity;				// max array size
+	uint8_t* code;				// 1 byte unsigned int, to store the CODESTREAM
+	int* lines;					// array of integers that parallels the bytecode/codestream, to get where each location of the bytecode is
+	ValueArray constants;		// store double value literals
+} Chunk;
+		
+void initChunk(Chunk* chunk);		// initialize array
+void freeChunk(Chunk* chunk);		// free/delete chunk and then restart with an empty chunk
+void writeChunk(Chunk* chunk, uint8_t byte, int line);	// add to array
+														// when we write a byte of code to the chunk, need to know source line it came from
+// add explicit function to add constats
+int addConstant(Chunk* chunk, Value value);
+
+
+/* the top two are simply wrapper around bytes */
+
+
+#endif
