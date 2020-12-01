@@ -31,7 +31,7 @@ static bool isAplha(char c)
 
 static bool isDigit(char c)
 {
-	return c >= '0' && c <= '0';		// let string comparison handle it
+	return c >= '0' && c <= '9';		// let string comparison handle it
 }
 
 // to get EOF symbol -> '\0'
@@ -229,7 +229,7 @@ static Token string()
 	// convert lexeme to runtime value later
 }
 
-// reading the token, per lexeme or word 
+// reading the char, and return a token
 Token scanToken()
 {
 	skipWhiteSpace();
@@ -241,8 +241,10 @@ Token scanToken()
 	// if not end of file
 	char c = advance();
 	
+	//printf("%c \n", c);
 	if (isAplha(c)) return identifier();
 	if (isDigit(c)) return number();		// number() is a TOKEN_NUMBER
+	//else printf("NONO");
 
 	// lexical grammar for the language
 	switch (c)

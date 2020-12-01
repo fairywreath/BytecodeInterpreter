@@ -6,6 +6,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// track the compiler
+#define DEBUG_PRINT_CODE
+
 // execution tracing of the VM
 #define DEBUG_TRACE_EXECUTION
 

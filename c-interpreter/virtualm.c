@@ -43,6 +43,7 @@ InterpretResult interpret(const char* source)
 	Chunk chunk;			// declare chunk/bytecode for the compiler
 	initChunk(&chunk);		// initialize the chunk
 
+	// pass chunk to compiler and fill it with bytecode
 	if (!compile(source, &chunk))		// if compilation fails
 	{
 		freeChunk(&chunk);
