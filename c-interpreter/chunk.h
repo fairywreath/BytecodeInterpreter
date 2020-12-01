@@ -15,6 +15,10 @@ typedef enum
 					// they have operands, to eg. identify which variable to load
 					// OP_CONSTANT take up 2 bytes, one is the opcode itself and the other the constant index
 	
+	OP_NULL,
+	OP_TRUE,
+	OP_FALSE,
+
 	// unary operators
 	OP_NEGATE,		// operand to negate, utilized in virtual machine
 
@@ -23,6 +27,12 @@ typedef enum
 	OP_SUBTRACT,
 	OP_MULTIPLY,
 	OP_DIVIDE,
+
+	// logical, unary
+	OP_NOT,
+	OP_EQUAL,
+	OP_GREATER,
+	OP_LESS,
 
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum

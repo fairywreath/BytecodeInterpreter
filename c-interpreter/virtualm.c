@@ -1,17 +1,43 @@
+#include <stdarg.h>	// for variadic functions
+#include <stdio.h>
+
+
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
 #include "virtualm.h"
-#include <stdio.h>
 
 // initialize virtual machine here
 VM vm;
+
+
+// forward declartion of run
+static InterpretResult run();
 
 static void resetStack()
 {
 	// point stackStop to the begininng of the empty array
 	vm.stackTop = vm.stack;		// stack array(vm.stack) is already indirectly declared, hence no need to allocate memory for it
 }
+
+// IMPORTANT
+// variadic function ( ... ), takes a varying number of arguments
+static void runtimeError(const char* format, ...)
+{
+	va_list args;	// list from the varying parameter
+	va_start(args, format);
+	vprintf(stderr, format, args);
+	va_end(args);
+	fputs("\n", stderr);	// fputs; write a string to the stream but not including the null character
+
+	// tell which line the error occurred
+	size_t instruction = vm.ip - vm.chunk->code - 1;	
+	int line = vm.chunk->lines[instruction];
+	fprintf("Error in script at [Line %d]\n", line);
+
+	resetStack();
+}
+
 
 void initVM()
 {
@@ -36,6 +62,25 @@ Value pop()
 	return  *vm.stackTop;
 }
 /* end of stack operations */
+
+// PEEK from the STACK, AFTER the compiler passes it through
+// return a value from top of the stack but does not pop it, distance being how far down
+// this is a C kind of accessing arrays/pointers
+static Value peek(int distance)
+{
+	return vm.stackTop[-1 - distance];
+}
+
+
+static bool isFalsey(Value value)
+{
+	// return true if value is the null type or if it is a false bool type
+	//printf("compared");
+	//return IS_NULL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+	bool test = IS_NULL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+
+	return test;
+}
 
 /* starting point of the compiler */
 InterpretResult interpret(const char* source)
@@ -81,11 +126,18 @@ READ_CONSTANT:
 // take two last constants, and push ONE final value doing the operations on both of them
 // this macro needs to expand to a series of statements, read a-virtual-machine for more info, this is a macro trick or a SCOPE BLOCK
 // pass in an OPERAOTR as a MACRO
-#define BINARY_OP(op)	\
-	do { \
-		double b = pop();	\
-		double a = pop();	\
-		push(a op b);	\
+// valueType is a Value struct
+// first check that both operands are numbers
+#define BINARY_OP(valueType, op)	\
+	do {	\
+		if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1)))	\
+		{	\
+			runtimeError("Operands must be numbers.");	\
+			return INTERPRET_RUNTIME_ERROR;		\
+		}	\
+		double b = AS_NUMBER(pop());	\
+		double a = AS_NUMBER(pop());	\
+		push(valueType(a op b));	\
 	} while(false)	\
 
 	for (;;)
@@ -122,18 +174,46 @@ READ_CONSTANT:
 				break;			// break from the switch
 			}
 			// unary opcode
-			case OP_NEGATE: push(-pop()); break;  // negates the last element of the stack
+			case OP_NEGATE: 
+				if (!IS_NUMBER(peek(0)))		// if next value is not a number
+				{
+					//printf("\nnot a number\n"); it actually works
+					runtimeError("Operand must be a number.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				
+				push(NUMBER_VAL(-AS_NUMBER(pop()))); 
+				break;  // negates the last element of the stack
 			
+			// literals
+			case OP_NULL: push(NULL_VAL); break;
+			case OP_TRUE: push(BOOL_VAL(true)); break;
+			case OP_FALSE: push(BOOL_VAL(false)); break;
+
 			// binary opcode
-			case OP_ADD: BINARY_OP(+); break;
-			case OP_SUBTRACT: BINARY_OP(-); break;
-			case OP_MULTIPLY: BINARY_OP(*); break;
-			case OP_DIVIDE: BINARY_OP(/); break;
+			case OP_ADD: BINARY_OP(NUMBER_VAL, +); break;			// initialize new Value struct (NUMBER_VAL) here
+			case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
+			case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
+			case OP_DIVIDE: BINARY_OP(NUMBER_VAL, /); break;
+
+			case OP_NOT:
+				push(BOOL_VAL(isFalsey(pop())));		// again, pops most recent one from the stack, does the operation on it, and pushes it back
+				break;
+
+			case OP_EQUAL:		// implemenation comparison done here
+			{
+				Value b = pop();
+				Value a = pop();
+				push(BOOL_VAL(valuesEqual(a, b)));
+				break;
+			}
+			case OP_GREATER: BINARY_OP(BOOL_VAL, > ); break;
+			case OP_LESS: BINARY_OP(BOOL_VAL, < ); break;
 
 			case OP_RETURN:				
 			{
 				// ACTUAL PRINTING IS DONE HERE
-				printValue(pop());		// pop the stack and print the value
+				printValue(pop());		// pop the stack and print the value, getting it from value.c
 				printf("\n");
 				return INTERPRET_OK;
 			}

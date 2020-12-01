@@ -3,6 +3,23 @@
 #include "debug.h"
 #include "value.h"
 
+
+static int simpleInstruction(const char* name, int offset)
+{
+	printf("%s\n", name);	// print as a string, or char*
+	return offset + 1;
+}
+
+static int constantInstruction(const char* name, Chunk* chunk, int offset)
+{
+	uint8_t constant = chunk->code[offset + 1];		// pullout the constant index from the subsequent byte in the chunk
+	printf("%-16s %4d '", name, constant);			// print out name of the opcode, then the constant index
+	printValue(chunk->constants.values[constant]);	//	display the value of the constant,  user defined function
+	printf("'\n");
+	return offset + 2;			//OP_RETURN is a single byte, and the other byte is the operand, hence offsets by 2
+}
+
+
 void disassembleChunk(Chunk* chunk, const char* name)
 {
 	printf("== %s ==\n", name);				// print a little header for debugging
@@ -43,6 +60,21 @@ int disassembleInstruction(Chunk* chunk, int offset)
 	case OP_CONSTANT:
 		return constantInstruction("OP_CONSTANT", chunk, offset);		// pass in chunk to get ValueArray element
 	
+	// literals
+	case OP_NULL:
+		return simpleInstruction("OP_NULL", offset);
+	case OP_TRUE:
+		return simpleInstruction("OP_TRUE", offset);
+	case OP_FALSE:
+		return simpleInstruction("OP_FALSE", offset);
+
+	case OP_EQUAL:
+		return simpleInstruction("OP_EQUAL", offset);
+	case OP_GREATER:
+		return simpleInstruction("OP_GREATER", offset);
+	case OP_LESS:
+		return simpleInstruction("OP+LESS", offset);
+
 	// unary
 	case OP_NEGATE:
 		return simpleInstruction("OP_NEGATE", offset);
@@ -56,6 +88,8 @@ int disassembleInstruction(Chunk* chunk, int offset)
 		return simpleInstruction("OP_MULTIPLY", offset);
 	case OP_DIVIDE:
 		return simpleInstruction("OP_DIVIDE", offset);
+	case OP_NOT:
+		return simpleInstruction("OP_NOT", offset);
 
 	default:
 		printf("Unknown opcode %d\n", instruction);
@@ -63,17 +97,4 @@ int disassembleInstruction(Chunk* chunk, int offset)
 	}
 }
 
-static int simpleInstruction(const char* name, int offset)
-{
-	printf("%s\n", name);	// print as a string, or char*
-	return offset + 1;
-}
 
-static int constantInstruction(const char* name, Chunk* chunk, int offset)
-{
-	uint8_t constant = chunk->code[offset + 1];		// pullout the constant index from the subsequent byte in the chunk
-	printf("%-16s %4d '", name, constant);			// print out name of the opcode, then the constant index
-	printValue(chunk->constants.values[constant]);	//	display the value of the constant,  user defined function
-	printf("'\n");
-	return offset + 2;			//OP_RETURN is a single byte, and the other byte is the operand, hence offsets by 2
-}

@@ -112,6 +112,8 @@ static void errorAtCurrent(const char* message)			// manually provide the messag
 	errorAt(&parser.current, message);				// pass in the current parser
 }
 
+
+/* main compile functions */
 // pump the compiler, basically go to / 'read' the next token, a SINGLE token
 static void advance()
 {
@@ -213,16 +215,39 @@ static void binary()
 	// compile right operand
 	ParseRule* rule = getRule(operatorType);		// the BIDMAS rule, operands in the right side have HIGHER PRECEDENCE
 													// as binary operators are LEFT ASSOCIATIVE
+	// recursively call parsePrecedence again
 	parsePrecedence((Precedence)(rule->precedence + 1));		// conert from rule to enum(precedence) type
 
 	switch (operatorType)
 	{
+		// note how NOT opcode is at the end
+		// six binary operators for three instructions only(greater, not, equal)
+	case TOKEN_BANG_EQUAL: emitBytes(OP_EQUAL, OP_NOT); break;		// add equal and not to the stack
+	case TOKEN_EQUAL_EQUAL: emitByte(OP_EQUAL); break;
+	case TOKEN_GREATER: emitByte(OP_GREATER); break;
+	case TOKEN_GREATER_EQUAL: emitBytes(OP_LESS, OP_NOT); break;
+	case TOKEN_LESS: emitByte(OP_LESS);	break;
+	case TOKEN_LESS_EQUAL: emitBytes(OP_GREATER, OP_NOT); break;
+
 	case TOKEN_PLUS:	emitByte(OP_ADD); break;
 	case TOKEN_MINUS:	emitByte(OP_SUBTRACT); break;
 	case TOKEN_STAR:	emitByte(OP_MULTIPLY); break;
 	case TOKEN_SLASH:	emitByte(OP_DIVIDE); break;
 	default:
 		return;			// unreachable
+	}
+}
+
+static void literal()
+{
+	switch (parser.previous.type)
+	{
+	case TOKEN_FALSE: emitByte(OP_FALSE); break;
+	case TOKEN_TRUE: emitByte(OP_TRUE); break;
+	case TOKEN_NULL: emitByte(OP_NULL); break;
+
+	default:		// unreachable
+		return;
 	}
 }
 
@@ -242,8 +267,13 @@ static void number()
 	// assume that token for the number literal has already been consumed and is stored in previous
 	// double strtod(const char* str, char** endptr)
 	// endptr is the first non-double character after teh char* str character; if none then null
+	/*	The way it works:
+	-> in scanner, if a digit exists after a digit, it advances() (skips) the current
+	-> hence, we get that the start points to the START of the digit, and using strtod smartly it reaches until the last digit
+	*/
 	double value = strtod(parser.previous.start, NULL);		
-	emitConstant(value);
+	//printf("num %c\n", *parser.previous.start);
+	emitConstant(NUMBER_VAL(value));
 }
 
 // unary
@@ -256,6 +286,9 @@ static void unary()
 
 	switch (operatorType)
 	{
+	case TOKEN_BANG: emitByte(OP_NOT); break;
+
+
 		// OP_NEGATE should be emitted last, AFTER the constant itself 
 		// eg. say 4 - 5; 5 needs to be emitted and added to the chunk->constants first before OP_NEGATE
 		/* it is important to take note of the precedence
@@ -289,31 +322,31 @@ ParseRule rules[] =
 	[TOKEN_SEMICOLON]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_SLASH]			= {NULL,     binary, PREC_FACTOR},
 	[TOKEN_STAR]			= {NULL,     binary, PREC_FACTOR},
-	[TOKEN_BANG]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_BANG_EQUAL]		= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_EQUAL]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_EQUAL_EQUAL]		= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_GREATER]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_GREATER_EQUAL]	= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_LESS]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_LESS_EQUAL]		= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_BANG]			= {unary,     NULL,   PREC_NONE},
+	[TOKEN_BANG_EQUAL]		= {NULL,     binary,   PREC_EQUALITY},	// equality precedence
+	[TOKEN_EQUAL]			= {NULL,     binary,   PREC_COMPARISON},		// comaprison precedence
+	[TOKEN_EQUAL_EQUAL]		= {NULL,     binary,   PREC_COMPARISON},
+	[TOKEN_GREATER]			= {NULL,     binary,   PREC_COMPARISON},
+	[TOKEN_GREATER_EQUAL]	= {NULL,     binary,   PREC_COMPARISON},
+	[TOKEN_LESS]			= {NULL,     binary,   PREC_COMPARISON},
+	[TOKEN_LESS_EQUAL]		= {NULL,      binary,  PREC_COMPARISON},
 	[TOKEN_IDENTIFIER]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_STRING]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_NUMBER]			= {number,   NULL,   PREC_NONE},
 	[TOKEN_AND]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_CLASS]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_ELSE]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_FALSE]			= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_FALSE]			= {literal,     NULL,   PREC_NONE},
 	[TOKEN_FOR]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_FUN]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_IF]				= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_NULL]			= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_NULL]			= {literal,     NULL,   PREC_NONE},
 	[TOKEN_OR]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_PRINT]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_RETURN]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_SUPER]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_THIS]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_TRUE]			= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_TRUE]			= {literal,     NULL,   PREC_NONE},
 	[TOKEN_VAR]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_WHILE]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_ERROR]			= {NULL,     NULL,   PREC_NONE},
@@ -334,6 +367,7 @@ static void parsePrecedence(Precedence precedence)
 	look up for a prefix token, and the FIRSt token is ALWAYS going to be a prefix
 	*/
 	advance();		// again, go next first then use previous type as the 'current' token
+	// the way the compiler is designed is that it has to always have a prefix
 	ParseFn prefixRule = getRule(parser.previous.type)->prefix;
 	if (prefixRule == NULL)
 	{
@@ -349,6 +383,7 @@ static void parsePrecedence(Precedence precedence)
 	while (precedence <= getRule(parser.current.type)->precedence)
 	{
 		advance();
+		//printf("advanced");
 		ParseFn infixRule = getRule(parser.previous.type)->infix;
 		infixRule();
 	}
@@ -362,7 +397,7 @@ static ParseRule* getRule(TokenType type)
 
 static void expression()
 {
-	parsePrecedence(PREC_ASSIGNMENT);	// as assignment is the lowest, parses evrything
+	parsePrecedence(PREC_ASSIGNMENT);	// as assignment is the 2nd lowest, parses evrything
 }
 
 

@@ -52,9 +52,13 @@ static char advance()
 // logical conditioning to check if 2nd character is embedded to first(e.g two char token)
 static bool match(char expected)
 {
-	if (!isAtEnd()) return false;
-	if (*scanner.current != expected) return false;				// if current char does not equal expected char, it is false
-
+	if (isAtEnd()) return false;			// if already at end, error
+	if (*scanner.current != expected)
+	{
+		//printf("no match");
+		return false;				// if current char does not equal expected char, it is false
+	}
+	//printf("match");
 	scanner.current++;		// if yes, advance to next
 	return true;
 }
@@ -150,6 +154,7 @@ static TokenType checkKeyword(int start, int length, const char* rest, TokenType
 // the 'trie' to store the set of strings
 static TokenType identifierType()
 {
+	//printf("b");
 	switch (scanner.start[0])		// start of the lexeme
 	{
 	case 'a': return checkKeyword(1, 2, "nd", TOKEN_AND);
@@ -166,7 +171,7 @@ static TokenType identifierType()
 			}
 		}
 	case 'i': return checkKeyword(1, 1, "f", TOKEN_IF);
-	case 'n': return checkKeyword(1, 2, "il", TOKEN_NULL);
+	case 'n': return checkKeyword(1, 3, "ull", TOKEN_NULL);
 	case 'o': return checkKeyword(1, 1, "r", TOKEN_OR);
 	case 'p': return checkKeyword(1, 4, "rint", TOKEN_PRINT);
 	case 'r': return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
@@ -191,7 +196,7 @@ static TokenType identifierType()
 
 static Token identifier()
 {
-	while (isAplha(peek()) || isDigit(peek())) advance;		// skip if still letters or digits 
+	while (isAplha(peek()) || isDigit(peek())) advance();		// skip if still letters or digits 
 	return makeToken(identifierType());
 }
 
@@ -205,7 +210,7 @@ static Token number()
 		// consume '.'
 		advance();
 
-		while (isDigit(peek())) advance;
+		while (isDigit(peek())) advance();
 	}
 
 	return makeToken(TOKEN_NUMBER);
@@ -240,11 +245,10 @@ Token scanToken()
 
 	// if not end of file
 	char c = advance();
-	
-	//printf("%c \n", c);
+
 	if (isAplha(c)) return identifier();
 	if (isDigit(c)) return number();		// number() is a TOKEN_NUMBER
-	//else printf("NONO");
+
 
 	// lexical grammar for the language
 	switch (c)
