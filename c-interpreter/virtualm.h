@@ -6,7 +6,9 @@
 #define virtualm_h
 
 #include "chunk.h"
+#include "hasht.h"
 #include "value.h"
+
 
 #define STACK_MAX 256		
 
@@ -18,6 +20,7 @@ typedef struct
 	Value* stackTop;			// pointer to the element just PAST the element containing the top value of the stack
 
 	Obj* objects;		// pointer to the header of the Obj itself/node, start of the list
+	Table strings;		// for string interning, to make sure every equal string takes one memory
 } VM;
 
 // rseult that responds from the running VM

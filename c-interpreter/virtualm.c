@@ -47,11 +47,13 @@ void initVM()
 {
 	resetStack();
 	vm.objects = NULL;
+	initTable(&vm.strings);
 }
 
 void freeVM()
 {
 	freeObjects();		// free all objects, from vm.objects
+	freeTable(&vm.strings);
 }
 
 /* stack operations */
@@ -106,7 +108,6 @@ static void concatenate()
 
 	ObjString* result = takeString(chars, length);		// declare new ObjString ptr
 	push(OBJ_VAL(result));
-
 }
 
 

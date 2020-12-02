@@ -57,19 +57,7 @@ bool valuesEqual(Value a, Value b)
 	case VAL_BOOL: return AS_BOOL(a) == AS_BOOL(b);
 	case VAL_NUMBER: return AS_NUMBER(a) == AS_NUMBER(b);
 	case VAL_NULL: return true;				// true for all nulls
-	case VAL_OBJ:		// for strings
-	{
-		ObjString* firstString = AS_STRING(a);			// from object.h
-		ObjString* secondString = AS_STRING(b);
-
-		//printf("length: %d", firstString->length);
-		return firstString->length == secondString->length &&
-			memcmp(firstString->chars, secondString->chars, firstString->length) == 0;
-	
-		// note on memcmp-> memcmp(const void *ptr1, const void *ptr2, size_t n)
-		// compare first n bytes of ptr1 and ptr2; in the case above, the whole length
-	}
-
+	case VAL_OBJ: return AS_OBJ(a) == AS_OBJ(b);		// already interned, occupies the same address
 	default:
 		return false;		// unreachable
 	}

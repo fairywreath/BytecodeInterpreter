@@ -34,6 +34,7 @@ struct ObjString			// using struct inheritance
 	Obj obj;
 	int length;
 	char* chars;
+	uint32_t hash;		// for hash table, for cache(temporary storage area); each ObjString has a hash code for itself
 };
 
 ObjString* takeString(char* chars, int length);			// create ObjString ptr from raw Cstring
