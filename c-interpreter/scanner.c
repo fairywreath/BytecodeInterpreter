@@ -221,7 +221,7 @@ static Token string()
 {
 	while (peek() != '"' && !isAtEnd())
 	{
-		if (peek() == '\n') scanner.line++;
+		if (peek() == '\n') scanner.line++;		// allow strings to go until next line
 		advance();		// consume characters until the closing quote is reached
 	}
 
@@ -277,7 +277,7 @@ Token scanToken()
 		return makeToken(match('=') ? TOKEN_LESS_EQUAL : TOKEN_LESS);
 
 		// literal tokens
-	case '"': return string();
+	case '"': return string();			// string token
 	}
 
 

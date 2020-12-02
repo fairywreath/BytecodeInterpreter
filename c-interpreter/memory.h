@@ -2,6 +2,17 @@
 #define memory_h
 
 #include "common.h"
+#include "object.h"			
+
+// macro to allocate memory, usedin obj/heap
+// use reallocate as malloc here; start from null pointer, old size is 0, and new size is count
+#define ALLOCATE(type, count)	\
+	(type*)reallocate(NULL, 0, sizeof(type) * (count))
+
+
+// free memory, pass in new size as 0 to free
+#define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
+
 
 // C macros
 // calculates a new capacity based on a given current capacity, it should SCALE based on the old one
@@ -18,6 +29,7 @@
 
 // no (type*) because function does not return a type
 // 0 is the new capacity
+// used to free eg. char arrays
 #define FREE_ARRAY(type, pointer, oldCount)	\
 	reallocate(pointer, sizeof(type) * (oldCount), 0)	\
 
@@ -32,5 +44,6 @@
 // void* mean it first accepts a data type
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
 	
+void freeObjects();			
 
 #endif

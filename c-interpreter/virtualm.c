@@ -1,8 +1,10 @@
-#include <stdarg.h>	// for variadic functions
+#include <stdarg.h>	// for variadic functions, va_list
 #include <stdio.h>
-
+#include <string.h>
 
 #include "common.h"
+#include "object.h"
+#include "memory.h"
 #include "compiler.h"
 #include "debug.h"
 #include "virtualm.h"
@@ -24,16 +26,18 @@ static void resetStack()
 // variadic function ( ... ), takes a varying number of arguments
 static void runtimeError(const char* format, ...)
 {
+	
 	va_list args;	// list from the varying parameter
 	va_start(args, format);
-	vprintf(stderr, format, args);
+	vprintf(format, args);		// unlike book, not vprintf(stderr, format, args)
 	va_end(args);
 	fputs("\n", stderr);	// fputs; write a string to the stream but not including the null character
+	
 
 	// tell which line the error occurred
 	size_t instruction = vm.ip - vm.chunk->code - 1;	
 	int line = vm.chunk->lines[instruction];
-	fprintf("Error in script at [Line %d]\n", line);
+	fprintf(stderr, "Error in script at [Line %d]\n", line);
 
 	resetStack();
 }
@@ -42,11 +46,12 @@ static void runtimeError(const char* format, ...)
 void initVM()
 {
 	resetStack();
+	vm.objects = NULL;
 }
 
 void freeVM()
 {
-
+	freeObjects();		// free all objects, from vm.objects
 }
 
 /* stack operations */
@@ -71,16 +76,39 @@ static Value peek(int distance)
 	return vm.stackTop[-1 - distance];
 }
 
-
+// comparison for OP_NOT
 static bool isFalsey(Value value)
 {
 	// return true if value is the null type or if it is a false bool type
-	//printf("compared");
-	//return IS_NULL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 	bool test = IS_NULL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 
 	return test;
 }
+
+// string concatenation
+static void concatenate()
+{
+	ObjString* second = AS_STRING(pop());
+	ObjString* first = AS_STRING(pop());
+	
+	int length = first->length + second->length;
+	char* chars = ALLOCATE(char, length + 1);		// dynamically allocate memory for the char, chars is now a NULL string
+
+	/* NOTE ON C STRINGS, NULL VS EMPTY
+	-> null string has no elements, it is an empty charray, ONLY DECLARED
+	-> an empty string has the null character '/0'
+	*/
+
+	// IMPORTANt -> use memcpy when assinging to a char* pointer
+	memcpy(chars, first->chars, first->length);		// memcpy function, copy to chars, from first->chars, with second->length number of bits
+	memcpy(chars + first->length, second->chars, second->length);		// remember to add the first length of bits to chars again, so it will START AFTER the given offset
+	chars[length] = '\0';			// IMPORTANT-> terminating character for Cstring, if not put will get n2222
+
+	ObjString* result = takeString(chars, length);		// declare new ObjString ptr
+	push(OBJ_VAL(result));
+
+}
+
 
 /* starting point of the compiler */
 InterpretResult interpret(const char* source)
@@ -191,7 +219,26 @@ READ_CONSTANT:
 			case OP_FALSE: push(BOOL_VAL(false)); break;
 
 			// binary opcode
-			case OP_ADD: BINARY_OP(NUMBER_VAL, +); break;			// initialize new Value struct (NUMBER_VAL) here
+			case OP_ADD: 
+			{
+				if (IS_STRING(peek(0)) && IS_STRING(peek(1)))	// if last two constants are strings
+				{
+					concatenate();
+				}
+				else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1)))
+				{
+					// in the book, macro is not used and a new algorithm is used directly
+					BINARY_OP(NUMBER_VAL, +); 		// initialize new Value struct (NUMBER_VAL) here
+				}
+				else		// handle errors dynamically here
+				{
+					//printf("operands error");
+					runtimeError("Operands are incompatible.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+			
 			case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
 			case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
 			case OP_DIVIDE: BINARY_OP(NUMBER_VAL, /); break;

@@ -147,7 +147,7 @@ static void consume(TokenType type, const char* message)
 // the writeChunk for the compiler
 static void emitByte(uint8_t byte)
 {
-	writeChunk(currentChunk(), byte, parser.previous.line);		// sends previous line so runtime errosr are associated with that line
+	writeChunk(currentChunk(), byte, parser.previous.line);		// sends previous line so runtime errors are associated with that line
 }
 
 // write chunk for multiple chunks, used to write an opcode followed by an operand(eg. in constants)
@@ -276,6 +276,13 @@ static void number()
 	emitConstant(NUMBER_VAL(value));
 }
 
+// 'initialize' the string here
+static void string()
+{
+	// in a string, eg. "hitagi", the quotation marks are trimmed
+	emitConstant(OBJ_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+}
+
 // unary
 static void unary()
 {
@@ -331,7 +338,7 @@ ParseRule rules[] =
 	[TOKEN_LESS]			= {NULL,     binary,   PREC_COMPARISON},
 	[TOKEN_LESS_EQUAL]		= {NULL,      binary,  PREC_COMPARISON},
 	[TOKEN_IDENTIFIER]		= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_STRING]			= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_STRING]			= {string,     NULL,   PREC_NONE},
 	[TOKEN_NUMBER]			= {number,   NULL,   PREC_NONE},
 	[TOKEN_AND]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_CLASS]			= {NULL,     NULL,   PREC_NONE},
