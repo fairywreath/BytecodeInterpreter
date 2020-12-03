@@ -25,6 +25,8 @@ typedef enum
 	// literals/declarations
 	OP_PRINT,
 	OP_POP,			// basically pops a value off the stack and forgets it, used for expression statements
+	OP_GET_LOCAL,
+	OP_SET_LOCAL,
 	OP_DEFINE_GLOBAL,
 	OP_GET_GLOBAL,
 	OP_SET_GLOBAL,

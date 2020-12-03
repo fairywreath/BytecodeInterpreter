@@ -12,5 +12,7 @@
 // execution tracing of the VM
 #define DEBUG_TRACE_EXECUTION
 
+// local variables array in compiler, max of 1 byte is 255
+#define UINT8_COUNT (UINT8_MAX + 1)
 
 # endif

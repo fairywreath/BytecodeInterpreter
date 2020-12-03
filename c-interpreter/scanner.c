@@ -154,7 +154,6 @@ static TokenType checkKeyword(int start, int length, const char* rest, TokenType
 // the 'trie' to store the set of strings
 static TokenType identifierType()
 {
-	//printf("b");
 	switch (scanner.start[0])		// start of the lexeme
 	{
 	case 'a': return checkKeyword(1, 2, "nd", TOKEN_AND);

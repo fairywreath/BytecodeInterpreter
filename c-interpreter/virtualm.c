@@ -148,6 +148,8 @@ READ_BYTE:
 	reads byte currently pointed at ip, then advances the instruction pointer
 READ_CONSTANT:
 	return constants.values element, from READ_BYTE(), which points exactly to the NEXT index
+READ STRING:
+	return as object string, read directly from the vm(oip)
 */
 
 #define READ_BYTE() (*vm.ip++)		
@@ -271,6 +273,21 @@ READ_CONSTANT:
 			}
 
 			case OP_POP: pop(); break;
+
+			case OP_GET_LOCAL:
+			{
+				uint8_t slot = READ_BYTE();
+				push(vm.stack[slot]);			// pushes the value to the stack where later instructions can read it
+				break;
+			}
+
+			case OP_SET_LOCAL:
+			{
+				uint8_t slot = READ_BYTE();
+				vm.stack[slot] = peek(0);		// takes from top of the stack and stores it in the stack slot
+				break;
+			}
+
 			case OP_DEFINE_GLOBAL:
 			{	
 				ObjString* name = READ_STRING();		// get name from constant table
