@@ -20,6 +20,7 @@ typedef struct
 	Value* stackTop;			// pointer to the element just PAST the element containing the top value of the stack
 
 	Obj* objects;		// pointer to the header of the Obj itself/node, start of the list
+	Table globals;		// for storing global variables
 	Table strings;		// for string interning, to make sure every equal string takes one memory
 } VM;
 

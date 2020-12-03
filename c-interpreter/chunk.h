@@ -22,6 +22,13 @@ typedef enum
 	// unary operators
 	OP_NEGATE,		// operand to negate, utilized in virtual machine
 
+	// literals/declarations
+	OP_PRINT,
+	OP_POP,			// basically pops a value off the stack and forgets it, used for expression statements
+	OP_DEFINE_GLOBAL,
+	OP_GET_GLOBAL,
+	OP_SET_GLOBAL,
+
 	// binary operators
 	OP_ADD,
 	OP_SUBTRACT,

@@ -47,12 +47,14 @@ void initVM()
 {
 	resetStack();
 	vm.objects = NULL;
+	initTable(&vm.globals);
 	initTable(&vm.strings);
 }
 
 void freeVM()
 {
 	freeObjects();		// free all objects, from vm.objects
+	freeTable(&vm.globals);
 	freeTable(&vm.strings);
 }
 
@@ -150,6 +152,7 @@ READ_CONSTANT:
 
 #define READ_BYTE() (*vm.ip++)		
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])	
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 
 // MACRO for binary operations
 // take two last constants, and push ONE final value doing the operations on both of them
@@ -258,11 +261,52 @@ READ_CONSTANT:
 			case OP_GREATER: BINARY_OP(BOOL_VAL, > ); break;
 			case OP_LESS: BINARY_OP(BOOL_VAL, < ); break;
 
-			case OP_RETURN:				
+
+			case OP_PRINT:
 			{
 				// ACTUAL PRINTING IS DONE HERE
 				printValue(pop());		// pop the stack and print the value, getting it from value.c
 				printf("\n");
+				return INTERPRET_OK;
+			}
+
+			case OP_POP: pop(); break;
+			case OP_DEFINE_GLOBAL:
+			{	
+				ObjString* name = READ_STRING();		// get name from constant table
+				tableSet(&vm.globals, name, peek(0));	// take value from the top of the stack
+				pop();
+				break;
+			}
+
+			case OP_GET_GLOBAL:
+			{
+				ObjString* name = READ_STRING();	// get the name
+				Value value;		// create new Value
+				if (!tableGet(&vm.globals, name, &value))	// if key not in hash table
+				{
+					runtimeError("Undefined variable '%s'.", name->chars);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				push(value);
+				break;
+			}
+
+			case OP_SET_GLOBAL:
+			{
+				ObjString* name = READ_STRING();
+				if (tableSet(&vm.globals, name, peek(0)))	// if key not in hash table
+				{
+					tableDelete(&vm.globals, name);		// delete the false name 
+					runtimeError("Undefined variable '%s'.", name->chars);
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_RETURN:				
+			{
+				// exit interpreter
 				return INTERPRET_OK;
 			}
 		}
@@ -271,5 +315,6 @@ READ_CONSTANT:
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
 }
