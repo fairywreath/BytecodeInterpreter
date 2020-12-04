@@ -43,6 +43,9 @@ typedef enum
 	OP_GREATER,
 	OP_LESS,
 
+	OP_JUMP,
+	OP_JUMP_IF_FALSE,		// takes a 16-bit operand
+	OP_LOOP, 
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum
 					// in C, you cannot have enums called simply by their rvalue 'string' names, use typdef to define them

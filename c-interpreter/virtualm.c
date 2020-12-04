@@ -156,6 +156,12 @@ READ STRING:
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])	
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 
+// for patch jumps
+// yanks next two bytes from the chunk(used to calculate the offset earlier) and return a 16-bit integer out of it
+// use bitwise OR
+#define READ_SHORT()	\
+	(vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
+
 // MACRO for binary operations
 // take two last constants, and push ONE final value doing the operations on both of them
 // this macro needs to expand to a series of statements, read a-virtual-machine for more info, this is a macro trick or a SCOPE BLOCK
@@ -284,6 +290,7 @@ READ STRING:
 			case OP_SET_LOCAL:
 			{
 				uint8_t slot = READ_BYTE();
+				// all the local var's VARIABLES are stored inside vm.stack
 				vm.stack[slot] = peek(0);		// takes from top of the stack and stores it in the stack slot
 				break;
 			}
@@ -321,6 +328,28 @@ READ STRING:
 				break;
 			}
 
+			case OP_JUMP:		// will always jump
+			{
+				uint16_t offset = READ_SHORT();
+				vm.ip += offset;
+				break;
+			}
+
+			case OP_JUMP_IF_FALSE:		// for initial if, will not jump if expression inside is true
+			{
+				uint16_t offset = READ_SHORT();				// offset already put in the stack
+				// actual jump instruction is done here; skip over the instruction pointer
+				if (isFalsey(peek(0))) vm.ip += offset;		// if evaluated expression inside if statement is false jump
+				break;
+			}
+
+			case OP_LOOP:
+			{
+				uint16_t offset = READ_SHORT();
+				vm.ip -= offset;		// jumps back
+				break;
+			}
+
 			case OP_RETURN:				
 			{
 				// exit interpreter
@@ -332,6 +361,7 @@ READ STRING:
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_SHORT
 #undef READ_STRING
 #undef BINARY_OP
 }
