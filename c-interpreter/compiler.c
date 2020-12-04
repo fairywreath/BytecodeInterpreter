@@ -190,7 +190,7 @@ static void emitLoop(int loopStart)
 	emitByte(OP_LOOP);
 
 	// int below jumps back, + 2 accounting the OP_LOOP and the instruction's own operand
-	int offset = currentChunk()->count = loopStart + 2;			
+	int offset = currentChunk()->count - loopStart + 2;			
 	if (offset > UINT16_MAX) error("Loop body too large.");
 
 	emitByte((offset >> 8) & 0xff);
@@ -243,6 +243,7 @@ static void patchJump(int offset)
 		error("Too much code to jump over.");
 	}
 
+	// the patchJump provides the VALUE or amount to JUMP
 	currentChunk()->code[offset] = (jump >> 8) & 0xff;		// right shift by 8, then bitwise AND with 255(oxff is 111111)
 	currentChunk()->code[offset + 1] = jump & 0xff;			// only AND
 }
@@ -407,6 +408,7 @@ static void and_(bool canAssign)
 
 	emitByte(OP_POP);
 	parsePrecedence(PREC_AND);
+
 
 	patchJump(endJump);
 }
@@ -602,7 +604,7 @@ ParseRule rules[] =
 	[TOKEN_IDENTIFIER]		= {variable,     NULL,   PREC_NONE},
 	[TOKEN_STRING]			= {string,     NULL,   PREC_NONE},
 	[TOKEN_NUMBER]			= {number,   NULL,   PREC_NONE},
-	[TOKEN_AND]				= {NULL,     and_,   PREC_NONE},
+	[TOKEN_AND]				= {NULL,     and_,   PREC_AND},
 	[TOKEN_CLASS]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_ELSE]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_FALSE]			= {literal,     NULL,   PREC_NONE},
@@ -610,7 +612,7 @@ ParseRule rules[] =
 	[TOKEN_FUN]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_IF]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_NULL]			= {literal,     NULL,   PREC_NONE},
-	[TOKEN_OR]				= {NULL,     or_,   PREC_NONE},
+	[TOKEN_OR]				= {NULL,     or_,   PREC_OR},
 	[TOKEN_PRINT]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_RETURN]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_SUPER]			= {NULL,     NULL,   PREC_NONE},
@@ -645,6 +647,8 @@ static void parsePrecedence(Precedence precedence)
 		return;
 	}
 
+	//
+
 
 	bool canAssign = precedence <= PREC_ASSIGNMENT;			// for assignment precedence	
 	prefixRule(canAssign);			// call the prefix function, may consume a lot of tokens
@@ -652,14 +656,19 @@ static void parsePrecedence(Precedence precedence)
 	
 	/* after prefix expression is done, look for infix expression
 	IMPORTANT: infix only runs if given precedence is LOWER than the operator for the infix
+	or more nicely if NEXT/INFIX PRECEDENCE IS HIGHER THAN PREC ASSIGNMENT(parameter above_
 	*/
+
 	
 	while (precedence <= getRule(parser.current.type)->precedence)
 	{
 		advance();
 		ParseFn infixRule = getRule(parser.previous.type)->infix;
+		
 		infixRule(canAssign);
 	}
+
+	//consume(TOKEN_AND, "consume and failed");
 
 	if (canAssign && match(TOKEN_EQUAL))		// if = is not consumed as part of the expression, nothing will , hence an error
 	{
@@ -791,14 +800,16 @@ static void forStatement()
 // if method
 static void ifStatement()
 {
-	consume(TOKEN_LEFT_PAREN, "Eexpect '(' after 'if'.");
+	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
 	expression();													// compile the expression statment inside; parsePrecedence()
 	// after compiling expression above conditon value will be left at the top of the stack
 	consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
 	// gives an operand on how much to offset the ip; how many bytes of code to skip
 	// if falsey, simply adjusts the ip by that amount
-	int thenJump = emitJump(OP_JUMP_IF_FALSE);	
+	// offset to jump to next (potentially else or elf) statment
+	// insert to opcode the then branch statment first, then get offset
+	int thenJump = emitJump(OP_JUMP_IF_FALSE);	/* this gets distance */
 
 
 	/* use BACKPATCHING
@@ -809,14 +820,24 @@ static void ifStatement()
 	
 	statement();
 
+	// below jump wil SURELY jump; this is skipped if the first emitJump is not false
 	int elseJump = emitJump(OP_JUMP);			// need to jump at least 'twice' with an else statement
 												// if the original statement is  true, then skip the the else statement
 
-	emitByte(OP_POP);		// if condition is true
-	patchJump(thenJump);
+	emitByte(OP_POP);		// if then statment is run; pop the expression inside () after if
+	patchJump(thenJump);	/* this actually jumps */
 
-	emitByte(OP_POP);		// if else statment is run
+	emitByte(OP_POP);		// if else statment is run; pop the expression inside () after if
 	if (match(TOKEN_ELSE)) statement();
+
+	if (match(TOKEN_ELF))	// else if
+	{
+		// go to statement, then go back to IF
+		ifStatement();
+	}
+
+	/* this actually jumps */
+	// last jump that is executed IF FIRST STATEMENT IS TRUE
 	patchJump(elseJump);			// for the second jump
 }
 
@@ -827,7 +848,7 @@ static void printStatement()
 	emitByte(OP_PRINT);
 }
 
-static void whileStaement()
+static void whileStatement()
 {
 	int loopStart = currentChunk()->count;		// index where the statement to loop starts
 
@@ -837,7 +858,7 @@ static void whileStaement()
 
 	int exitJump = emitJump(OP_JUMP_IF_FALSE);			// skip stament if condition is false
 
-	emitByte(OP_POP);
+	emitByte(OP_POP);			// pop the last expression(true or false)
 	statement();
 
 	emitLoop(loopStart);		// method to 'loop' the instruction
@@ -892,13 +913,15 @@ static void declaration()
 
 static void statement()					// either an expression or a print
 {
+
 	if (match(TOKEN_PRINT))			
 	{
+		printf("print statement\n");
 		printStatement();
 	}
 	else if (match(TOKEN_WHILE))
 	{
-		whileStaement();
+		whileStatement();
 	}
 	else if (match(TOKEN_FOR))
 	{

@@ -158,7 +158,24 @@ static TokenType identifierType()
 	{
 	case 'a': return checkKeyword(1, 2, "nd", TOKEN_AND);
 	case 'c': return checkKeyword(1, 4, "lass", TOKEN_CLASS);
-	case 'e': return checkKeyword(1, 3, "lse", TOKEN_ELSE);
+	case 'e': 
+		if (scanner.current - scanner.start > 1)
+		{
+			switch (scanner.start[1])	// check if there is a second letter
+			{
+			case 'l':
+				{
+					if (scanner.current - scanner.start > 2)	// check if there is a third letter
+					{
+						switch (scanner.start[2])
+						{
+						case 's': return checkKeyword(3, 1, "e", TOKEN_ELSE);
+						case 'f': return checkKeyword(3, 0, "", TOKEN_ELF);			// already matched
+						}
+					}
+				}
+			}
+		}
 	case 'f':
 		if (scanner.current - scanner.start > 1)	// check if there is a second letter
 		{

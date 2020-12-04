@@ -201,6 +201,8 @@ READ STRING:
 			printValue(*slot);
 			printf(" ]");
 		}
+
+		
 		disassembleInstruction(vm.chunk, (int)(vm.ip - vm.chunk->code));
 #endif
 		uint8_t instruction;
@@ -275,7 +277,7 @@ READ STRING:
 				// ACTUAL PRINTING IS DONE HERE
 				printValue(pop());		// pop the stack and print the value, getting it from value.c
 				printf("\n");
-				return INTERPRET_OK;
+				break;
 			}
 
 			case OP_POP: pop(); break;
