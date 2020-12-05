@@ -5,17 +5,33 @@
 #ifndef virtualm_h
 #define virtualm_h
 
+#include "object.h"
 #include "chunk.h"
 #include "hasht.h"
 #include "value.h"
 
+// max frames is fixed
+#define FRAMES_MAX 64
+#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)		
 
-#define STACK_MAX 256		
+
+// the call stack
+// keep track where on the stack a function's local begin, where the caller should resume, etc.
+// a call frame represents a single ongoing function call
+// each time a function is called, create this struct
+typedef struct
+{
+	ObjFunction* function;
+	uint8_t* ip;		// store ip on where in the VM the function is
+	Value* slots;		// this points into the VM's value stack at the first slot the function can use
+} CallFrame;
 
 typedef struct
 {
-	Chunk* chunk;		// array of chunk code
-	uint8_t* ip;		// to store location of the instruction currently being executed, a BYTE POINTER
+	// since the whole program is one big 'main()' use callstacks
+	CallFrame frames[FRAMES_MAX];		
+	int frameCount;				// stores current height of the stack
+
 	Value stack[STACK_MAX];			// stack array is 'indirectly' declared inline here
 	Value* stackTop;			// pointer to the element just PAST the element containing the top value of the stack
 

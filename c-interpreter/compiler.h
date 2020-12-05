@@ -6,6 +6,6 @@
 #include "object.h"
 #include "virtualm.h"
 
-bool compile(const char* source, Chunk* chunk);			// receives the source code(in charray) and the chunk itself
+ObjFunction* compile(const char* source);			// receives the source code(in charray) and the chunk itself
 
 #endif

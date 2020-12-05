@@ -23,10 +23,18 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize)
 }
 
 
+// you can pass in a'lower' struct pointer, in this case Obj*, and get the higher level which is ObjFunction
 void freeObject(Obj* object)		// to handle different types
 {
 	switch (object->type)
 	{
+	case OBJ_FUNCTION:		// return bits(chunk) borrowed to the operating syste,
+	{
+		ObjFunction* function = (ObjFunction*)object;
+		freeChunk(&function->chunk);
+		FREE(ObjFunction, object);
+		break;
+	}
 	case OBJ_STRING: 
 	{
 		ObjString* string = (ObjString*)object;

@@ -20,6 +20,7 @@ static void resetStack()
 {
 	// point stackStop to the begininng of the empty array
 	vm.stackTop = vm.stack;		// stack array(vm.stack) is already indirectly declared, hence no need to allocate memory for it
+	vm.frameCount = 0;
 }
 
 // IMPORTANT
@@ -35,8 +36,9 @@ static void runtimeError(const char* format, ...)
 	
 
 	// tell which line the error occurred
-	size_t instruction = vm.ip - vm.chunk->code - 1;	
-	int line = vm.chunk->lines[instruction];
+	CallFrame* frame = &vm.frames[vm.frameCount - 1];		// pulls from topmost CallFrame on the stack
+	size_t instruction = frame->ip - frame->function->chunk.code - 1;	// - 1 to deal with the 1 added initially for the main() CallFrame
+	int line = frame->function->chunk.lines[instruction];
 	fprintf(stderr, "Error in script at [Line %d]\n", line);
 
 	resetStack();
@@ -116,23 +118,17 @@ static void concatenate()
 /* starting point of the compiler */
 InterpretResult interpret(const char* source)
 {
-	Chunk chunk;			// declare chunk/bytecode for the compiler
-	initChunk(&chunk);		// initialize the chunk
+	ObjFunction* function = compile(source);
+	if (function == NULL) return INTERPRET_COMPILE_ERROR;		// NULL gets passed from compiler
 
-	// pass chunk to compiler and fill it with bytecode
-	if (!compile(source, &chunk))		// if compilation fails
-	{
-		freeChunk(&chunk);
-		return INTERPRET_COMPILE_ERROR;
-	}
+	push(OBJ_VAL(function));
+	CallFrame* frame = &vm.frames[vm.frameCount++];				// prepare initial callframe to execute code
+	frame->function = function;
+	frame->ip = function->chunk.code;
+	frame->slots = vm.stack;				// slots for values
 
-	vm.chunk = &chunk;			// set vm chunk
-	vm.ip = vm.chunk->code;		// assign pointer to the start of the chunk
 
-	InterpretResult result = run();
-
-	freeChunk(&chunk);
-	return result;
+	return run();
 }
 
 
@@ -140,6 +136,7 @@ InterpretResult interpret(const char* source)
 // most IMPORTANT part of the interpreter
 static InterpretResult run()		// static means the scope of the function is only to this file
 {
+	CallFrame* frame = &vm.frames[vm.frameCount - 1];
 
 /* info on the macros below
 Below macros are FUNCTIONSt that take ZERO arguments, and what is inside () is their return value
@@ -152,15 +149,16 @@ READ STRING:
 	return as object string, read directly from the vm(oip)
 */
 
-#define READ_BYTE() (*vm.ip++)		
-#define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])	
+#define READ_BYTE() (*frame->ip++)		
+#define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])	
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 
 // for patch jumps
 // yanks next two bytes from the chunk(used to calculate the offset earlier) and return a 16-bit integer out of it
 // use bitwise OR
 #define READ_SHORT()	\
-	(vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
+	(frame->ip += 2, \
+	(uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
 
 // MACRO for binary operations
 // take two last constants, and push ONE final value doing the operations on both of them
@@ -203,7 +201,8 @@ READ STRING:
 		}
 
 		
-		disassembleInstruction(vm.chunk, (int)(vm.ip - vm.chunk->code));
+		disassembleInstruction(&frame->function->chunk, 
+			(int)(frame->ip - frame->function->chunk.code));
 #endif
 		uint8_t instruction;
 		switch (instruction = READ_BYTE())			// get result of the byte read, every set of instruction starts with an opcode
@@ -285,7 +284,7 @@ READ STRING:
 			case OP_GET_LOCAL:
 			{
 				uint8_t slot = READ_BYTE();
-				push(vm.stack[slot]);			// pushes the value to the stack where later instructions can read it
+				push(frame->slots[slot]);			// pushes the value to the stack where later instructions can read it
 				break;
 			}
 
@@ -293,7 +292,7 @@ READ STRING:
 			{
 				uint8_t slot = READ_BYTE();
 				// all the local var's VARIABLES are stored inside vm.stack
-				vm.stack[slot] = peek(0);		// takes from top of the stack and stores it in the stack slot
+				frame->slots[slot] = peek(0);		// takes from top of the stack and stores it in the stack slot
 				break;
 			}
 
@@ -333,7 +332,7 @@ READ STRING:
 			case OP_JUMP:		// will always jump
 			{
 				uint16_t offset = READ_SHORT();
-				vm.ip += offset;
+				frame->ip += offset;
 				break;
 			}
 
@@ -341,14 +340,14 @@ READ STRING:
 			{
 				uint16_t offset = READ_SHORT();				// offset already put in the stack
 				// actual jump instruction is done here; skip over the instruction pointer
-				if (isFalsey(peek(0))) vm.ip += offset;		// if evaluated expression inside if statement is false jump
+				if (isFalsey(peek(0))) frame->ip += offset;		// if evaluated expression inside if statement is false jump
 				break;
 			}
 
 			case OP_LOOP:
 			{
 				uint16_t offset = READ_SHORT();
-				vm.ip -= offset;		// jumps back
+				frame->ip -= offset;		// jumps back
 				break;
 			}
 

@@ -71,9 +71,22 @@ typedef struct
 	int depth;			// depth of the variable, corresponding to scoreDepth in the struct below
 } Local;
 
-// stack for local variables
-typedef struct
+
+typedef enum
 {
+	TYPE_FUNCTION,
+	TYPE_SCRIPT		// top level main()
+} FunctionType;
+
+// stack for local variables
+typedef struct Compiler		// give name to struct itself(the name comes after), only used below in enclosing
+{
+	struct Compiler* enclosing;			// pointer to the 'outer'/enclosing compiler, to return to after function
+
+	// wrapping the whole program into one big main() function
+	ObjFunction* function;
+	FunctionType type;
+
 	Local locals[UINT8_COUNT];		// array to store locals, ordered in the order of declarations
 	int localCount;					// tracks amount of locals in a scope
 	int scopeDepth;					// number of scopes/blocks surrounding the code
@@ -83,12 +96,9 @@ Parser parser;
 
 Compiler* current = NULL;
 
-Chunk* compilingChunk;		// declare Chunk pointer
-
-
 static Chunk* currentChunk()
 {
-	return compilingChunk;
+	return &current->function->chunk;
 }
 
 // to handle syntax errors
@@ -249,25 +259,45 @@ static void patchJump(int offset)
 }
 
 // initialize the compiler
-static void initCompiler(Compiler* compiler)
+static void initCompiler(Compiler* compiler, FunctionType type)
 {
+	compiler->enclosing = current;			// the 'outer' compiler
+	compiler->function = NULL;
+	compiler->type = type;
 	compiler->localCount = 0;
 	compiler->scopeDepth = 0;
+	compiler->function = newFunction();
 	current = compiler;				// current is the global variable pointer for the Compiler struct, point to to the parameter
 									// basically assign the global pointer 
+
+	// for functions
+	if (type != TYPE_SCRIPT)
+	{
+		current->function->name = copyString(parser.previous.start, parser.previous.length);		// function name handled here
+	}
+
+	// compiler implicitly claims slot zero for local variables
+	Local* local = &current->locals[current->localCount++];
+	local->depth = 0;
+	local->name.start = "";
+	local->name.length = 0;
 }
 
-static void endCompiler()
+static ObjFunction* endCompiler()
 {
 	emitReturn();
+	ObjFunction* function = current->function;
 
 	// for debugging
 #ifdef DEBUG_PRINT_CODE
 	if (!parser.hadError)
 	{
-		disassembleChunk(currentChunk(), "code");
+		disassembleChunk(currentChunk(), function->name != NULL ? function->name->chars : "<script>");	// if name is NULL then it is the Script type(main()
 	}
 #endif
+
+	current = current->enclosing;	// return back to enclosing compiler after function
+	return function;			// return to free
 }
 
 static void beginScope()
@@ -387,6 +417,7 @@ static uint8_t parseVariable(const char* errorMessage)
 
 static void markInitialized()
 {
+	if (current->scopeDepth == 0) return;				// if global return
 	current->locals[current->localCount - 1].depth = current->scopeDepth;
 }
 
@@ -698,6 +729,52 @@ static void block()
 }
 
 
+/* functions */
+static void function(FunctionType type)
+{
+	// create separate Compiler for each function
+	Compiler compiler;
+	initCompiler(&compiler, type);		// set new compiler(function) as the current one
+	beginScope();
+
+	// compile parameters
+	consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+	
+	if (!check(TOKEN_RIGHT_PAREN))		// if end ) has not been reached
+	{
+		do {
+			current->function->arity++;		// add number of parameters
+			if (current->function->arity > 255)
+			{
+				errorAtCurrent("Cannot have more than 255 parameters.");
+			}
+
+			uint8_t paramConstant = parseVariable("Expect variable name.");		// get name
+			defineVariable(paramConstant);			// scope handled here already
+		} while (match(TOKEN_COMMA));
+	}	
+
+	consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameter list.");
+
+	// body
+	consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
+	block();
+
+	// create function object
+	ObjFunction* function = endCompiler();				// ends the current compiler
+	// compilers are treated like a stack; if current one is ended, like above, return to the previous one
+
+	emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+}
+
+static void funDeclaration()
+{
+	uint8_t global = parseVariable("Expect function name.");
+	markInitialized();					// scoping
+	function(TYPE_FUNCTION);	
+	defineVariable(global);
+}
+
 static void varDeclaration()
 {
 	uint8_t global = parseVariable("Expect variable name.");
@@ -900,7 +977,11 @@ static void synchronize()
 
 static void declaration()
 {
-	if (match(TOKEN_VAR))
+	if (match(TOKEN_FUN))
+	{
+		funDeclaration();
+	}
+	else if (match(TOKEN_VAR))
 	{
 		varDeclaration();		// declare variable
 	}
@@ -911,12 +992,11 @@ static void declaration()
 	if (parser.panicMode) synchronize();		// for errors
 }
 
-static void statement()					// either an expression or a print
+static void statement( )					// either an expression or a print
 {
 
 	if (match(TOKEN_PRINT))			
 	{
-		printf("print statement\n");
 		printStatement();
 	}
 	else if (match(TOKEN_WHILE))
@@ -943,12 +1023,11 @@ static void statement()					// either an expression or a print
 	}
 }
 
-bool compile(const char* source, Chunk* chunk)
+ObjFunction* compile(const char* source)
 {
 	initScanner(source);			// start scan/lexing
 	Compiler compiler;
-	initCompiler(&compiler);
-	compilingChunk = chunk;
+	initCompiler(&compiler, TYPE_SCRIPT);
 
 	parser.hadError = false;
 	parser.panicMode = false;
@@ -961,7 +1040,7 @@ bool compile(const char* source, Chunk* chunk)
 	}
 
 	
-	endCompiler();					// ends the expression with a return type
-	return !parser.hadError;		// if no error return true
+	ObjFunction* function = endCompiler();					// ends the expression with a return type
+	return parser.hadError ? NULL : function;		// if no error return true
 }
 

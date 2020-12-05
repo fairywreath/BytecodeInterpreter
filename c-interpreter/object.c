@@ -43,6 +43,19 @@ static ObjString* allocateString(char* chars, int length, uint32_t hash)			// pa
 	return string;
 }
 
+
+ObjFunction* newFunction()
+{
+	ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+
+	function->arity = 0;
+	function->name = NULL;
+	initChunk(&function->chunk);
+	return function;
+}
+
+
+
 // hash function, the FNV-1a
 static uint32_t hashString(const char* key, int length)
 {
@@ -91,10 +104,24 @@ ObjString* copyString(const char* chars, int length)
 	return allocateString(heapChars, length, hash);
 }
 
+static void printFunction(ObjFunction* function)
+{
+	if (function->name == NULL)
+	{
+		printf("<script>");
+		return;
+	}
+	printf("fun %s(%d)", function->name->chars, function->arity);		// print name and number of parameters
+}
+
 void printObject(Value value)
 {
+	// first class objects can be printed; string and functions
 	switch (OBJ_TYPE(value))
 	{
+	case OBJ_FUNCTION:
+		printFunction(AS_FUNCTION(value));
+		break;
 	case OBJ_STRING:
 		printf("%s", AS_CSTRING(value));
 		break;
