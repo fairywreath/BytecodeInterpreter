@@ -432,6 +432,31 @@ static void defineVariable(uint8_t global)
 	emitBytes(OP_DEFINE_GLOBAL, global);	// opcode for declaration and the constant itself
 }
 
+
+// for function arguments, returns number of arguments
+// each argument expression generates code which leaves value on the stack in preparation for the call
+static uint8_t argumentList()
+{
+	uint8_t argCount = 0;
+	if (!check(TOKEN_RIGHT_PAREN))		// if ) has not been reached
+	{
+		do
+		{
+			expression();		// collect the arguments
+			
+			if (argCount == 255)			// cannot have more than 255 arguments as each operand is a single byte(uint8_t)
+			{		
+				error("Cannot have more than 255 arguments.");
+			}
+
+			argCount++;
+		} while (match(TOKEN_COMMA));
+	}
+
+	consume(TOKEN_RIGHT_PAREN, "Expect ')' after argument list.");
+	return argCount;
+}
+
 static void and_(bool canAssign)
 {
 	int endJump = emitJump(OP_JUMP_IF_FALSE);		// left hand side is already compiled,
@@ -480,6 +505,16 @@ static void binary(bool canAssign)
 		return;			// unreachable
 	}
 }
+
+
+// for function calls
+static void call(bool canAssign)
+{
+	// again, assumes the function itself(its call name) has been placed on the codestream stack
+	uint8_t argCount = argumentList();		// compile arguments using argumentList
+	emitBytes(OP_CALL, argCount);			// write on the chunk
+}
+
 
 static void literal(bool canAssign)
 {
@@ -613,7 +648,8 @@ token enums from scanner is reused
 */
 ParseRule rules[] =
 {
-	[TOKEN_LEFT_PAREN]		= {grouping,	NULL,	 PREC_NONE},	
+	// function calls are like infixes, with high precedence on the left, ( in the middle for arguments, then ) at the end
+	[TOKEN_LEFT_PAREN]		= {grouping,	call,	 PREC_CALL},		// call for functions	
 	[TOKEN_RIGHT_PAREN]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_LEFT_BRACE]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_RIGHT_BRACE]		= {NULL,     NULL,   PREC_NONE},

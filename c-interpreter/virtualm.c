@@ -82,6 +82,50 @@ static Value peek(int distance)
 	return vm.stackTop[-1 - distance];
 }
 
+
+/* for call stacks/functions  */
+static bool call(ObjFunction* function, int argCount)
+{
+
+	if (argCount != function->arity)	// if number of parameters does not match
+	{
+		runtimeError("Expected %d arguments but got %d", function->arity, argCount);
+		return false;
+	}
+
+	// as CallFrame is an array, to ensure array does not overflow
+	if (vm.frameCount == FRAMES_MAX)
+	{
+		runtimeError("Stack overflow.");
+		return false;
+	}
+
+	CallFrame* frame = &vm.frames[vm.frameCount++];			// initializes callframe to the top of the stack
+	frame->function = function;
+	frame->ip = function->chunk.code;
+
+	// set up slots pointer to give frame its window into the stack
+	// ensures everyting lines up
+	// slots is the 'starting pointer' for the function cll
+	frame->slots = vm.stackTop - argCount - 1;
+	return true;
+}
+
+static bool callValue(Value callee, int argCount)
+{
+	if (IS_OBJ(callee))
+	{
+		switch (OBJ_TYPE(callee))
+		{
+		case OBJ_FUNCTION:				// ensure type is function
+			return call(AS_FUNCTION(callee), argCount);		// call to function happens here
+
+		default:	// non callable
+			break;	
+		}
+	}
+}
+
 // comparison for OP_NOT
 static bool isFalsey(Value value)
 {
@@ -122,10 +166,7 @@ InterpretResult interpret(const char* source)
 	if (function == NULL) return INTERPRET_COMPILE_ERROR;		// NULL gets passed from compiler
 
 	push(OBJ_VAL(function));
-	CallFrame* frame = &vm.frames[vm.frameCount++];				// prepare initial callframe to execute code
-	frame->function = function;
-	frame->ip = function->chunk.code;
-	frame->slots = vm.stack;				// slots for values
+	callValue(OBJ_VAL(function), 0);		// 'run' main function
 
 
 	return run();
@@ -348,6 +389,19 @@ READ STRING:
 			{
 				uint16_t offset = READ_SHORT();
 				frame->ip -= offset;		// jumps back
+				break;
+			}
+
+			// a callstack to a funcion has the form of function name, param1, param2...
+			// the top level code, or caller, also has the same function name, param1, param2... in the right order
+			case OP_CALL:
+			{
+				int argCount = READ_BYTE();
+				if (!callValue(peek(argCount), argCount))	// call function; pass in the function name istelf[peek(depth)] and the number of arguments
+				{
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				frame = &vm.frames[vm.frameCount - 1];			// to update pointer if callFrame is successful, asnew frame is added
 				break;
 			}
 
