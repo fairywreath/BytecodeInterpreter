@@ -54,6 +54,14 @@ ObjFunction* newFunction()
 	return function;
 }
 
+// new native function
+ObjNative* newNative(NativeFn function)
+{
+	ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+	native->function = function;
+	return native;
+}
+
 
 
 // hash function, the FNV-1a
@@ -121,6 +129,9 @@ void printObject(Value value)
 	{
 	case OBJ_FUNCTION:
 		printFunction(AS_FUNCTION(value));
+		break;
+	case OBJ_NATIVE:
+		printf("<native fun>");
 		break;
 	case OBJ_STRING:
 		printf("%s", AS_CSTRING(value));

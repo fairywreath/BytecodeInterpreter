@@ -222,6 +222,7 @@ static int emitJump(uint8_t instruction)
 //  emit specific return type
 static void emitReturn()
 {
+	emitByte(OP_NULL);			// for functions that return nothing
 	emitByte(OP_RETURN);		// emit return type at the end of a compiler
 }
 
@@ -961,6 +962,24 @@ static void printStatement()
 	emitByte(OP_PRINT);
 }
 
+static void returnStatement()
+{
+	if (current->type == TYPE_SCRIPT)
+	{
+		error("Cannot return from top-level code.");
+	}
+	if (match(TOKEN_SEMICOLON))
+	{
+		emitReturn();
+	}
+	else
+	{
+		expression();
+		consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
+		emitByte(OP_RETURN);
+	}
+}
+
 static void whileStatement()
 {
 	int loopStart = currentChunk()->count;		// index where the statement to loop starts
@@ -1034,6 +1053,10 @@ static void statement( )					// either an expression or a print
 	if (match(TOKEN_PRINT))			
 	{
 		printStatement();
+	}
+	else if (match(TOKEN_RETURN))
+	{
+		returnStatement();			// for functions return
 	}
 	else if (match(TOKEN_WHILE))
 	{

@@ -11,6 +11,7 @@
 #define OBJ_TYPE(value)	(AS_OBJ(value)->type)		// extracts the tag
 
 #define IS_FUNCTION(value)	isObjType(value, OBJ_FUNCTION)
+#define IS_NATIVE(value)	isObjType(value, OBJ_NATIVE)
 #define IS_STRING(value)	isObjType(value, OBJ_STRING)		// takes in raw Value, not raw Obj*
 
 // macros to tell that it is safe when creating a tag, by returning the requested type
@@ -18,10 +19,13 @@
 #define AS_STRING(value)	((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value)	(((ObjString*)AS_OBJ(value))->chars)		// get chars(char*) from ObjString pointer
 #define AS_FUNCTION(value)	((ObjFunction*)AS_OBJ(value))
+#define AS_NATIVE(value)	\
+	(((ObjNative*)AS_OBJ(value))->function)
 
 typedef enum
 {
 	OBJ_FUNCTION,
+	OBJ_NATIVE,
 	OBJ_STRING,
 } ObjType;
 
@@ -42,6 +46,18 @@ typedef struct
 	ObjString* name;
 } ObjFunction;
 
+/*  NATIVE FUNCTIONS(file systems, user input etc.)
+-> native functions reference a call to native C code insted of bytecode */
+typedef Value(*NativeFn)(int argCount, Value* args);		// rename Value to NativeFn
+
+typedef struct {
+	Obj obj;
+	NativeFn function;
+} ObjNative;
+
+
+
+
 
 struct ObjString			// using struct inheritance
 {
@@ -52,6 +68,7 @@ struct ObjString			// using struct inheritance
 };
 
 ObjFunction* newFunction();
+ObjNative* newNative(NativeFn function);
 ObjString* takeString(char* chars, int length);			// create ObjString ptr from raw Cstring
 ObjString* copyString(const char* chars, int length);	// note: const inside parameter means that parameter cannot be changed
 void printObject(Value value);

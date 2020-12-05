@@ -1,6 +1,7 @@
 #include <stdarg.h>	// for variadic functions, va_list
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "common.h"
 #include "object.h"
@@ -12,6 +13,10 @@
 // initialize virtual machine here
 VM vm;
 
+static Value clockNative(int argCount, Value* args)
+{
+	return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);		// returns elapsed time since program was running
+}
 
 // forward declartion of run
 static InterpretResult run();
@@ -35,6 +40,27 @@ static void runtimeError(const char* format, ...)
 	fputs("\n", stderr);	// fputs; write a string to the stream but not including the null character
 	
 
+	// printing the stack trace for the function
+	// print out each function that was still executing when the program died and where the execution was at the point it died
+	for (int i = vm.frameCount - 1; i >= 0; i--)
+	{
+		CallFrame* frame = &vm.frames[i];
+		ObjFunction* function = frame->function;
+		// - 1 because IP is sitting on the NEXT INSTRUCTION to be executed
+		size_t instruction = frame->ip - function->chunk.code - 1;
+		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+		if (function->name == NULL)
+		{
+			fprintf(stderr, "script\n");
+		}
+		else
+		{
+			fprintf(stderr, "%s(%d)\n", function->name->chars, function->arity);
+		}
+
+	}
+
+
 	// tell which line the error occurred
 	CallFrame* frame = &vm.frames[vm.frameCount - 1];		// pulls from topmost CallFrame on the stack
 	size_t instruction = frame->ip - frame->function->chunk.code - 1;	// - 1 to deal with the 1 added initially for the main() CallFrame
@@ -44,6 +70,15 @@ static void runtimeError(const char* format, ...)
 	resetStack();
 }
 
+static void defineNative(const char* name, NativeFn function)
+{
+	push(OBJ_VAL(copyString(name, (int)strlen(name))));			// strlen to get char* length
+	push(OBJ_VAL(newNative(function)));
+	tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
+	pop();
+	pop();
+}
+
 
 void initVM()
 {
@@ -51,6 +86,8 @@ void initVM()
 	vm.objects = NULL;
 	initTable(&vm.globals);
 	initTable(&vm.strings);
+
+	defineNative("clock", clockNative);
 }
 
 void freeVM()
@@ -120,6 +157,14 @@ static bool callValue(Value callee, int argCount)
 		case OBJ_FUNCTION:				// ensure type is function
 			return call(AS_FUNCTION(callee), argCount);		// call to function happens here
 
+		case OBJ_NATIVE:
+		{
+			NativeFn native = AS_NATIVE(callee);
+			Value result = native(argCount, vm.stackTop - argCount);
+			vm.stackTop -= argCount + 1;				// remove call and arguments from the stack
+			push(result);
+			return true;
+		}
 		default:	// non callable
 			break;	
 		}
@@ -407,8 +452,22 @@ READ STRING:
 
 			case OP_RETURN:				
 			{
-				// exit interpreter
-				return INTERPRET_OK;
+				Value result = pop();	// if function returns a value, value will beon top of the stack
+
+				vm.frameCount--;
+				if (vm.frameCount == 0)		// return from 'main()'/script function
+				{
+					pop();						// pop main script function from the stack
+					return INTERPRET_OK;
+				}
+
+				// for a function
+				// discard all the slots the callee was using for its parameters
+				vm.stackTop = frame->slots;		// basically 're-assign'
+				push(result);		// push the return value
+
+				frame = &vm.frames[vm.frameCount - 1];		// update run function's current frame
+				break;
 			}
 		}
 	}
