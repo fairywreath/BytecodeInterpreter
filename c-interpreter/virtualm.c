@@ -346,6 +346,15 @@ READ STRING:
 				push(BOOL_VAL(isFalsey(pop())));		// again, pops most recent one from the stack, does the operation on it, and pushes it back
 				break;
 
+			// for switch eqal
+			case OP_SWITCH_EQUAL:
+			{
+				Value b = pop();		// only pop second value
+				Value a = peek(0);		// peek topmost, the first value
+				push(BOOL_VAL(valuesEqual(a, b)));
+				break;
+			}
+
 			case OP_EQUAL:		// implemenation comparison done here
 			{
 				Value b = pop();

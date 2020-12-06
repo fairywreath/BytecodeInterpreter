@@ -43,6 +43,8 @@ typedef enum
 	OP_GREATER,
 	OP_LESS,
 
+	OP_SWITCH_EQUAL,
+
 	OP_JUMP,
 	OP_JUMP_IF_FALSE,		// takes a 16-bit operand
 	OP_CALL,

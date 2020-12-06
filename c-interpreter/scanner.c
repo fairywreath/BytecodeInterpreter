@@ -157,7 +157,17 @@ static TokenType identifierType()
 	switch (scanner.start[0])		// start of the lexeme
 	{
 	case 'a': return checkKeyword(1, 2, "nd", TOKEN_AND);
-	case 'c': return checkKeyword(1, 4, "lass", TOKEN_CLASS);
+	case 'c':
+	{
+		if (scanner.current - scanner.start > 1)
+		{
+			switch (scanner.start[1])
+			{
+			case 'a': return checkKeyword(2, 2, "se", TOKEN_CASE);
+			case 'l': return checkKeyword(2, 3, "ass", TOKEN_CLASS);
+			}
+		}
+	}
 	case 'e': 
 		if (scanner.current - scanner.start > 1)
 		{
@@ -191,7 +201,15 @@ static TokenType identifierType()
 	case 'o': return checkKeyword(1, 1, "r", TOKEN_OR);
 	case 'p': return checkKeyword(1, 4, "rint", TOKEN_PRINT);
 	case 'r': return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
-	case 's': return checkKeyword(1, 4, "uper", TOKEN_SUPER);
+	case 's': 
+		if (scanner.current - scanner.start > 1)			// if there is a second letter
+		{
+			switch (scanner.start[1])
+			{
+			case 'u': return checkKeyword(2, 3, "per", TOKEN_SUPER);
+			case 'w': return checkKeyword(2, 4, "itch", TOKEN_SWITCH);
+			}
+		}
 	case 't':
 		if (scanner.current - scanner.start > 1)
 		{
@@ -275,6 +293,7 @@ Token scanToken()
 	case '{': return makeToken(TOKEN_LEFT_BRACE);
 	case '}': return makeToken(TOKEN_RIGHT_BRACE);
 	case ';': return makeToken(TOKEN_SEMICOLON);
+	case ':': return makeToken(TOKEN_COLON);
 	case ',': return makeToken(TOKEN_COMMA);
 	case '.': return makeToken(TOKEN_DOT);
 	case '-': return makeToken(TOKEN_MINUS);

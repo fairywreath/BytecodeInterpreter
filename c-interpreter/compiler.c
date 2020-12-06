@@ -5,7 +5,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "scanner.h"
-
+#include "memory.h"			// for switch statements
 
 /*	A compiler has two jobs really:
 	- it parses the user's source code
@@ -592,7 +592,6 @@ static void namedVariable(Token name, bool canAssign)
 		setOp = OP_SET_GLOBAL;
 	}
 
-
 	
 	// test case to check whether it is a get(just the name) or a reassignment
 	if (canAssign && match(TOKEN_EQUAL))		// if a = follows right after
@@ -716,7 +715,6 @@ static void parsePrecedence(Precedence precedence)
 	}
 
 	//
-
 
 	bool canAssign = precedence <= PREC_ASSIGNMENT;			// for assignment precedence	
 	prefixRule(canAssign);			// call the prefix function, may consume a lot of tokens
@@ -955,6 +953,71 @@ static void ifStatement()
 	patchJump(elseJump);			// for the second jump
 }
 
+static void switchStatement()
+{
+	//printf("\nSwitch read \n");
+
+	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+	if (!check(TOKEN_IDENTIFIER))	// check next token
+	{
+		errorAtCurrent("Expect identifier after switch.");
+	}
+
+	// if no error, consume the identifier
+	expression();
+
+	consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch variable.");
+	consume(TOKEN_COLON, "Expect ':' after switch declaration.");
+	consume(TOKEN_CASE, "Expect at lest 1 case after switch declaration.");
+
+	/* to store  opcode offsets */
+	uint8_t casesCount = -1;
+	uint8_t capacity = 0;
+	int* casesOffset = ALLOCATE(int, 8);			// 8 initial switch cases
+
+	do		// while next token is a case, match also advances
+	{
+		// grow array if needed
+		if (capacity < casesCount + 1)
+		{
+			int oldCapacity = capacity;
+			capacity = GROW_CAPACITY(oldCapacity);
+			casesOffset = GROW_ARRAY(int, casesOffset, oldCapacity, capacity);
+		}
+		
+		casesCount++; 
+
+		expression();
+		consume(TOKEN_COLON, "Expect ':' after case expression.");
+		emitByte(OP_SWITCH_EQUAL);			// check if both values are equal
+
+		int caseFalseJump = emitJump(OP_JUMP_IF_FALSE);					// jump if false
+		//printf("\ncase false jump offset: %d", caseFalseJump);
+
+		// parse the statment
+		statement();
+
+		emitByte(OP_POP);		// pop the 'true' from OP_SWITCH_EQUAL
+		casesOffset[casesCount] = emitJump(OP_JUMP);
+		//printf("\ncase true jump offset: %d", casesOffset[casesCount]);
+		
+		// jump to end of case if false
+		patchJump(caseFalseJump);
+		emitByte(OP_POP);		// pop the 'false' statment from OP_SWITCH_EQUAL
+	} while (match(TOKEN_CASE));
+
+
+	// patchJump for each available jump
+	for (uint8_t i = 0; i <= casesCount; i++)
+	{
+		patchJump(casesOffset[i]);
+	}
+		
+	emitByte(OP_POP);			// pop switch constant
+	FREE_ARRAY(int, casesOffset, capacity);
+}
+
+
 static void printStatement()
 {
 	expression();			// this is the function that actually processes the experssion
@@ -1065,6 +1128,10 @@ static void statement( )					// either an expression or a print
 	else if (match(TOKEN_FOR))
 	{
 		forStatement();
+	}
+	else if (match(TOKEN_SWITCH))
+	{
+		switchStatement();
 	}
 	else if (match(TOKEN_IF))
 	{
