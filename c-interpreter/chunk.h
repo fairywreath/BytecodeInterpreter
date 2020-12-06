@@ -31,6 +31,9 @@ typedef enum
 	OP_GET_GLOBAL,
 	OP_SET_GLOBAL,
 
+	OP_SET_UPVALUE,
+	OP_GET_UPVALUE,
+
 	// binary operators
 	OP_ADD,
 	OP_SUBTRACT,
@@ -49,6 +52,7 @@ typedef enum
 	OP_JUMP_IF_FALSE,		// takes a 16-bit operand
 	OP_CALL,
 	OP_LOOP, 
+	OP_CLOSURE,
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum
 					// in C, you cannot have enums called simply by their rvalue 'string' names, use typdef to define them

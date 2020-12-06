@@ -28,6 +28,15 @@ void freeObject(Obj* object)		// to handle different types
 {
 	switch (object->type)
 	{
+	case OBJ_CLOSURE:
+	{
+		// free upvalues
+		ObjClosure* closure = (ObjClosure*)object;
+		FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);		
+		
+		FREE(ObjClosure, object);		// only free the closure, not the function itself
+		break;
+	}
 	case OBJ_FUNCTION:		// return bits(chunk) borrowed to the operating syste,
 	{
 		ObjFunction* function = (ObjFunction*)object;
@@ -45,6 +54,11 @@ void freeObject(Obj* object)		// to handle different types
 		ObjString* string = (ObjString*)object;
 		FREE_ARRAY(char, string->chars, string->length + 1);
 		FREE(ObjString, object);
+		break;
+	}
+	case OBJ_UPVALUE:
+	{
+		FREE(ObjUpvalue, object);
 		break;
 	}
 	}

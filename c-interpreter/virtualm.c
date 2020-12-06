@@ -45,7 +45,7 @@ static void runtimeError(const char* format, ...)
 	for (int i = vm.frameCount - 1; i >= 0; i--)
 	{
 		CallFrame* frame = &vm.frames[i];
-		ObjFunction* function = frame->function;
+		ObjFunction* function = frame->closure->function;
 		// - 1 because IP is sitting on the NEXT INSTRUCTION to be executed
 		size_t instruction = frame->ip - function->chunk.code - 1;
 		fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
@@ -63,8 +63,8 @@ static void runtimeError(const char* format, ...)
 
 	// tell which line the error occurred
 	CallFrame* frame = &vm.frames[vm.frameCount - 1];		// pulls from topmost CallFrame on the stack
-	size_t instruction = frame->ip - frame->function->chunk.code - 1;	// - 1 to deal with the 1 added initially for the main() CallFrame
-	int line = frame->function->chunk.lines[instruction];
+	size_t instruction = frame->ip - frame->closure->function->chunk.code - 1;	// - 1 to deal with the 1 added initially for the main() CallFrame
+	int line = frame->closure->function->chunk.lines[instruction];
 	fprintf(stderr, "Error in script at [Line %d]\n", line);
 
 	resetStack();
@@ -121,12 +121,12 @@ static Value peek(int distance)
 
 
 /* for call stacks/functions  */
-static bool call(ObjFunction* function, int argCount)
+static bool call(ObjClosure* closure, int argCount)
 {
 
-	if (argCount != function->arity)	// if number of parameters does not match
+	if (argCount != closure->function->arity)	// if number of parameters does not match
 	{
-		runtimeError("Expected %d arguments but got %d", function->arity, argCount);
+		runtimeError("Expected %d arguments but got %d", closure->function->arity, argCount);
 		return false;
 	}
 
@@ -137,9 +137,10 @@ static bool call(ObjFunction* function, int argCount)
 		return false;
 	}
 
+	// get pointer to next in frame array
 	CallFrame* frame = &vm.frames[vm.frameCount++];			// initializes callframe to the top of the stack
-	frame->function = function;
-	frame->ip = function->chunk.code;
+	frame->closure = closure;
+	frame->ip = closure->function->chunk.code;
 
 	// set up slots pointer to give frame its window into the stack
 	// ensures everyting lines up
@@ -154,8 +155,8 @@ static bool callValue(Value callee, int argCount)
 	{
 		switch (OBJ_TYPE(callee))
 		{
-		case OBJ_FUNCTION:				// ensure type is function
-			return call(AS_FUNCTION(callee), argCount);		// call to function happens here
+		case OBJ_CLOSURE:				// ensure type is function
+			return call(AS_CLOSURE(callee), argCount);		// call to function happens here
 
 		case OBJ_NATIVE:
 		{
@@ -169,6 +170,13 @@ static bool callValue(Value callee, int argCount)
 			break;	
 		}
 	}
+}
+
+// get corresponding upvalue 
+static ObjUpvalue* captureUpvalue(Value* local)
+{
+	ObjUpvalue* createdUpvalue = newUpvalue(local);
+	return createdUpvalue;
 }
 
 // comparison for OP_NOT
@@ -211,7 +219,10 @@ InterpretResult interpret(const char* source)
 	if (function == NULL) return INTERPRET_COMPILE_ERROR;		// NULL gets passed from compiler
 
 	push(OBJ_VAL(function));
-	callValue(OBJ_VAL(function), 0);		// 'run' main function
+	ObjClosure* closure = newClosure(function);
+	pop();
+	push(OBJ_VAL(closure));
+	callValue(OBJ_VAL(closure), 0);			// 0 params for main()
 
 
 	return run();
@@ -236,7 +247,8 @@ READ STRING:
 */
 
 #define READ_BYTE() (*frame->ip++)		
-#define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])	
+#define READ_CONSTANT()		\
+	(frame->closure->function->chunk.constants.values[READ_BYTE()])	
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 
 // for patch jumps
@@ -287,8 +299,8 @@ READ STRING:
 		}
 
 		
-		disassembleInstruction(&frame->function->chunk, 
-			(int)(frame->ip - frame->function->chunk.code));
+		disassembleInstruction(&frame->closure->function->chunk, 
+			(int)(frame->ip - frame->closure->function->chunk.code));
 #endif
 		uint8_t instruction;
 		switch (instruction = READ_BYTE())			// get result of the byte read, every set of instruction starts with an opcode
@@ -424,6 +436,21 @@ READ STRING:
 				break;
 			}
 
+			// upvalues set/get
+			case OP_GET_UPVALUE:
+			{
+				uint8_t slot = READ_BYTE();		// read index
+				push(*frame->closure->upvalues[slot]->location);		// push the value to the stack
+				break;
+			}
+
+			case OP_SET_UPVALUE:
+			{
+				uint8_t slot = READ_BYTE();		// read index
+				*frame->closure->upvalues[slot]->location = peek(0);		// set to the topmost stack
+				break;
+			}
+
 			case OP_JUMP:		// will always jump
 			{
 				uint16_t offset = READ_SHORT();
@@ -456,6 +483,34 @@ READ STRING:
 					return INTERPRET_RUNTIME_ERROR;
 				}
 				frame = &vm.frames[vm.frameCount - 1];			// to update pointer if callFrame is successful, asnew frame is added
+				break;
+			}
+
+			// closures
+			case OP_CLOSURE:
+			{
+				ObjFunction* function = AS_FUNCTION(READ_CONSTANT());		// load compiled function from table
+				ObjClosure* closure = newClosure(function);
+				push(OBJ_VAL(closure));
+
+				// fill upvalue array over in the interpreter when a closure is created
+				// to see upvalues in each slot
+				for (int i = 0; i < closure->upvalueCount; i++)
+				{
+					uint8_t isLocal = READ_BYTE();		// read isLocal bool
+					uint8_t index = READ_BYTE();		// read index for local, if available, in the closure
+					if (isLocal)
+					{
+						closure->upvalues[i] = captureUpvalue(frame->slots + index);		// get from slots stack
+
+					}
+					else				// if not local(nested upvalue)
+					{
+						closure->upvalues[i] = frame->closure->upvalues[index];				// get from current upvalue
+					}
+				}
+
+
 				break;
 			}
 

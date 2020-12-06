@@ -21,7 +21,7 @@
 // each time a function is called, create this struct
 typedef struct
 {
-	ObjFunction* function;
+	ObjClosure* closure;
 	uint8_t* ip;		// store ip on where in the VM the function is
 	Value* slots;		// this points into the VM's value stack at the first slot the function can use
 } CallFrame;

@@ -72,6 +72,12 @@ typedef struct
 } Local;
 
 
+typedef struct
+{
+	bool isLocal;
+	int index;			// matches the index of the local variable in ObjClosure
+} Upvalue;	
+
 typedef enum
 {
 	TYPE_FUNCTION,
@@ -89,6 +95,7 @@ typedef struct Compiler		// give name to struct itself(the name comes after), on
 
 	Local locals[UINT8_COUNT];		// array to store locals, ordered in the order of declarations
 	int localCount;					// tracks amount of locals in a scope
+	Upvalue upvalues[UINT8_COUNT];
 	int scopeDepth;					// number of scopes/blocks surrounding the code
 } Compiler;
 
@@ -360,6 +367,63 @@ static int resolveLocal(Compiler* compiler, Token* name)
 }
 
 
+// add upvalue
+static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal)
+{
+	int upvalueCount = compiler->function->upvalueCount;	// get current upvalue count
+
+	// check whether the upvalue has already been declared
+	for (int i = 0; i < upvalueCount; i++)
+	{
+		Upvalue* upvalue = &compiler->upvalues[i];			// get pointer for each upvalue in the array
+		if (upvalue->index == index && upvalue->isLocal == isLocal)
+		{
+			return i;				// if found, return the index of the upvalue in the upvalue array
+		}
+	}
+
+	if (upvalueCount == UINT8_COUNT)
+	{
+		error("Too many closure variables");
+		return 0;
+	}
+
+	// compiler keeps an array of upvalue structs to track closed-over identifiers
+	// indexes in the array match the indexes of ObjClosure at runtime
+	// insert to upvalues array
+	compiler->upvalues[upvalueCount].isLocal = isLocal;		// insert bool status
+	compiler->upvalues[upvalueCount].index = index;			// insert index
+	return compiler->function->upvalueCount++;				// increase count and return
+}
+
+
+/*	for closures
+- resolveUpvalue looks for a local variable declared in any of the surrounding functions
+- if it finds one it returns the index for that upvalue variable, otherwise returns -1
+*/
+static int resolveUpvalue(Compiler* compiler, Token* name)
+{
+	if (compiler->enclosing == NULL) return -1;		// if in main()
+
+	int local = resolveLocal(compiler->enclosing, name);	// looks for local value in enclosing function/compiler
+	if (local != -1)
+	{
+		return addUpvalue(compiler, (uint8_t)local, true);		// create up value
+	}
+
+	// recursion to solve nested upvalues
+	// recursive call right in the middle
+	int upvalue = resolveUpvalue(compiler->enclosing, name);	// if the enclosing function is main() (NULL), it returns -1
+	if (upvalue != -1)
+	{
+		return addUpvalue(compiler, (uint8_t)upvalue, true);
+	}
+
+
+	return -1;
+}
+
+
 static void addLocal(Token name)
 {
 	if (current->localCount == UINT8_COUNT)
@@ -585,6 +649,11 @@ static void namedVariable(Token name, bool canAssign)
 		getOp = OP_GET_LOCAL;
 		setOp = OP_SET_LOCAL;
 	}
+	else if ((arg = resolveUpvalue(current, &name)) != -1)		// for upvalues
+	{
+		getOp = OP_GET_UPVALUE;
+		setOp = OP_SET_UPVALUE;
+	}
 	else
 	{
 		arg = identifierConstant(&name);
@@ -799,7 +868,24 @@ static void function(FunctionType type)
 	ObjFunction* function = endCompiler();				// ends the current compiler
 	// compilers are treated like a stack; if current one is ended, like above, return to the previous one
 
-	emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+	// emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+	emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+
+	/*	by the time the compiler reaches the end of a function declaration,
+	every variable reference hass been resolved as either local, upvalue or global.
+	each upvalue may return a local var or another upvalue
+
+	-> for each upvalue there are two single-byte operands
+	-> if first byte is one, then it captures a local variable in the enclosing function
+	-> if first byte is 0, it captures the function's upvalues
+	*/
+	
+	for (int i = 0; i < function->upvalueCount; i++)
+	{
+		emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+		emitByte(compiler.upvalues[i].index);				 // emit index
+	}
+
 }
 
 static void funDeclaration()
@@ -1006,6 +1092,9 @@ static void switchStatement()
 		emitByte(OP_POP);		// pop the 'false' statment from OP_SWITCH_EQUAL
 	} while (match(TOKEN_CASE));
 
+	consume(TOKEN_DEFAULT, "Default case not provided for switch.");
+	consume(TOKEN_COLON, "Expect ':' default case.");
+	statement();		// running the default statement
 
 	// patchJump for each available jump
 	for (uint8_t i = 0; i <= casesCount; i++)

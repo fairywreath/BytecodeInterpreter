@@ -65,6 +65,7 @@ typedef struct
 #define macroname(parameter) (returntype)
 -> here, return a Value type. initializing it inside the macro
 -> . means as
+IMPORTANT = these macros give a 'tag' to each respective values
 */
 #define BOOL_VAL(value)		((Value){VAL_BOOL, {.boolean = value}})		
 #define NULL_VAL			((Value){VAL_NULL, {.number = 0}})

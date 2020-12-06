@@ -168,6 +168,16 @@ static TokenType identifierType()
 			}
 		}
 	}
+	case 'd':
+	{
+		if (scanner.current - scanner.start > 1)
+		{
+			switch (scanner.start[1])
+			{
+			case 'e': return checkKeyword(2, 5, "fault", TOKEN_DEFAULT);
+			}
+		}
+	}
 	case 'e': 
 		if (scanner.current - scanner.start > 1)
 		{

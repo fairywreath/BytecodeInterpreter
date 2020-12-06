@@ -2,6 +2,7 @@
 
 #include "debug.h"
 #include "value.h"
+#include "object.h"
 
 
 static int simpleInstruction(const char* name, int offset)
@@ -113,6 +114,10 @@ int disassembleInstruction(Chunk* chunk, int offset)
 	case OP_SET_LOCAL:
 		return byteInstruction("OP_SET_LOCAL", chunk, offset);
 
+	case OP_GET_UPVALUE:
+		return byteInstruction("OP_GET_UPVALUE", chunk, offset);
+	case OP_SET_UPVALUE:
+		return byteInstruction("OP_SET_UPVALUE", chunk, offset);
 
 	case OP_DEFINE_GLOBAL:
 		return simpleInstruction("OP_DEFINE_GLOBAL", offset);
@@ -134,6 +139,25 @@ int disassembleInstruction(Chunk* chunk, int offset)
 
 	case OP_CALL:
 		return byteInstruction("OP_CALL", chunk, offset);
+
+	case OP_CLOSURE:
+	{
+		offset++;
+		uint8_t constant = chunk->code[offset++];			// index for Value
+		printf("%-16s %4d ", "OP_CLOSURE", constant);
+		printValue(chunk->constants.values[constant]);		// accessing the value using the index
+		printf("\n");
+
+		ObjFunction* function = AS_FUNCTION(chunk->constants.values[constant]);
+		for (int j = 0; j < function->upvalueCount; j++)	// walk through upvalues
+		{
+			int isLocal = chunk->code[offset++];
+			int index = chunk->code[offset++];
+			printf("%04d	|	%s %d\n", offset - 2, isLocal ? "local" : "upvalue", index);
+		}
+
+		return offset;
+	}
 
 	case OP_RETURN:
 		return simpleInstruction("OP_RETURN", offset);		// dispatch to a utility function to display it

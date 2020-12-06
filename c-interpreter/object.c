@@ -30,6 +30,26 @@ static Obj* allocateObject(size_t size, ObjType type)
 	return object;
 }
 
+// create new closure
+ObjClosure* newClosure(ObjFunction* function)
+{
+	// initialize array of upvalue pointers
+	// upvalues carry over
+	ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+
+	for (int i = 0; i < function->upvalueCount; i++)
+	{
+		upvalues[i] = NULL;				// initialize all as null
+	}
+
+
+	ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+	closure->function = function;
+	closure->upvalues = upvalues;
+	closure->upvalueCount = function->upvalueCount;
+	return closure;
+}
+
 static ObjString* allocateString(char* chars, int length, uint32_t hash)			// pass in hash
 {
 	ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
@@ -49,6 +69,7 @@ ObjFunction* newFunction()
 	ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
 
 	function->arity = 0;
+	function->upvalueCount = 0;
 	function->name = NULL;
 	initChunk(&function->chunk);
 	return function;
@@ -112,6 +133,14 @@ ObjString* copyString(const char* chars, int length)
 	return allocateString(heapChars, length, hash);
 }
 
+
+ObjUpvalue* newUpvalue(Value* slot)
+{
+	ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+	upvalue->location = slot;
+	return upvalue;
+}
+
 static void printFunction(ObjFunction* function)
 {
 	if (function->name == NULL)
@@ -119,7 +148,7 @@ static void printFunction(ObjFunction* function)
 		printf("<script>");
 		return;
 	}
-	printf("fun %s(%d)", function->name->chars, function->arity);		// print name and number of parameters
+	printf("fun %s(%d params)", function->name->chars, function->arity);		// print name and number of parameters
 }
 
 void printObject(Value value)
@@ -127,6 +156,9 @@ void printObject(Value value)
 	// first class objects can be printed; string and functions
 	switch (OBJ_TYPE(value))
 	{
+	case OBJ_CLOSURE:
+		printFunction(AS_CLOSURE(value)->function);
+		break;
 	case OBJ_FUNCTION:
 		printFunction(AS_FUNCTION(value));
 		break;
@@ -135,6 +167,9 @@ void printObject(Value value)
 		break;
 	case OBJ_STRING:
 		printf("%s", AS_CSTRING(value));
+		break;
+	case OBJ_UPVALUE:
+		printf("upvalue");
 		break;
 	default:
 		return;

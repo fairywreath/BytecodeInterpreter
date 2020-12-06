@@ -13,9 +13,12 @@
 #define IS_FUNCTION(value)	isObjType(value, OBJ_FUNCTION)
 #define IS_NATIVE(value)	isObjType(value, OBJ_NATIVE)
 #define IS_STRING(value)	isObjType(value, OBJ_STRING)		// takes in raw Value, not raw Obj*
+#define IS_CLOSURE(value)	isObjType(value, OBJ_CLOSURE)
 
 // macros to tell that it is safe when creating a tag, by returning the requested type
 // take a Value that is expected to conatin a pointer to the heap, first returns pointer second the charray itself
+// used to cast as a value
+#define AS_CLOSURE(value)	((ObjClosure*)AS_OBJ(value))
 #define AS_STRING(value)	((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value)	(((ObjString*)AS_OBJ(value))->chars)		// get chars(char*) from ObjString pointer
 #define AS_FUNCTION(value)	((ObjFunction*)AS_OBJ(value))
@@ -24,9 +27,11 @@
 
 typedef enum
 {
+	OBJ_CLOSURE,
 	OBJ_FUNCTION,
 	OBJ_NATIVE,
 	OBJ_STRING,
+	OBJ_UPVALUE
 } ObjType;
 
 
@@ -42,9 +47,30 @@ typedef struct
 {
 	Obj obj;
 	int arity;				// store number of parameters
+	int upvalueCount;		// to track upValues
 	Chunk chunk;			// to store the function information
 	ObjString* name;
 } ObjFunction;
+
+
+typedef struct ObjUpvalue			// define ObjUpvalue here to use them inside the struct
+{
+	Obj obj;
+	Value* location;			// pointer to value in the enclosing ObjClosure
+} ObjUpvalue;
+
+// for closures
+typedef struct
+{
+	// points to an ObjFunction and Obj header
+	Obj obj;					// Obj header
+	ObjFunction* function;
+	
+	// for upvalues
+	ObjUpvalue** upvalues;		// array of upvalue pointers
+	int upvalueCount;
+} ObjClosure;
+
 
 /*  NATIVE FUNCTIONS(file systems, user input etc.)
 -> native functions reference a call to native C code insted of bytecode */
@@ -67,8 +93,13 @@ struct ObjString			// using struct inheritance
 	uint32_t hash;		// for hash table, for cache(temporary storage area); each ObjString has a hash code for itself
 };
 
+
+
 ObjFunction* newFunction();
 ObjNative* newNative(NativeFn function);
+ObjClosure* newClosure(ObjFunction* function);			// create closure from ObjFunction
+ObjUpvalue* newUpvalue(Value* slot);
+
 ObjString* takeString(char* chars, int length);			// create ObjString ptr from raw Cstring
 ObjString* copyString(const char* chars, int length);	// note: const inside parameter means that parameter cannot be changed
 void printObject(Value value);
