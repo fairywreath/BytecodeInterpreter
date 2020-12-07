@@ -69,6 +69,7 @@ typedef struct
 {
 	Token name;
 	int depth;			// depth of the variable, corresponding to scoreDepth in the struct below
+	bool isCaptured;	// track whether the local is captured by a closure or no
 } Local;
 
 
@@ -286,6 +287,7 @@ static void initCompiler(Compiler* compiler, FunctionType type)
 
 	// compiler implicitly claims slot zero for local variables
 	Local* local = &current->locals[current->localCount++];
+	local->isCaptured = false;
 	local->depth = 0;
 	local->name.start = "";
 	local->name.length = 0;
@@ -320,7 +322,17 @@ static void endScope()
 	// remove variables out of scope
 	while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth)
 	{
-		emitByte(OP_POP);
+		/* at the end of a block scope, when the compiler emits code to free the stack slot for the locals, 
+		tell which one to hoist to the heap
+		*/
+		if (current->locals[current->localCount - 1].isCaptured)	// if it is captured/used
+		{
+			emitByte(OP_CLOSE_UPVALUE);	// op code to move the upvalue to the heap
+		}
+		else{
+			emitByte(OP_POP);			// if not used anymore/capture simply pop the value off the stack
+		}
+
 		current->localCount--;
 	}
 }
@@ -408,6 +420,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name)
 	int local = resolveLocal(compiler->enclosing, name);	// looks for local value in enclosing function/compiler
 	if (local != -1)
 	{
+		compiler->enclosing->locals[local].isCaptured = true;	// mark local is captured/used by and upvalue
 		return addUpvalue(compiler, (uint8_t)local, true);		// create up value
 	}
 
@@ -435,6 +448,7 @@ static void addLocal(Token name)
 	Local* local = &current->locals[current->localCount++];
 	local->name = name;
 	local->depth = -1;			// for cases where a variable name is redefined inside another scope, using the variable itself
+	local->isCaptured = false;
 }
 
 static void declareVariable()	// for local variables

@@ -57,6 +57,12 @@ typedef struct ObjUpvalue			// define ObjUpvalue here to use them inside the str
 {
 	Obj obj;
 	Value* location;			// pointer to value in the enclosing ObjClosure
+	
+	Value closed;		// to store closed upvalue
+								
+	// intrusive/linked list to track sorted openvalues
+	// ordered by the stack slot they point to
+	struct ObjUpvalue* next;
 } ObjUpvalue;
 
 // for closures

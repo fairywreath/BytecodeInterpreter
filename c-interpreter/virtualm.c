@@ -26,6 +26,7 @@ static void resetStack()
 	// point stackStop to the begininng of the empty array
 	vm.stackTop = vm.stack;		// stack array(vm.stack) is already indirectly declared, hence no need to allocate memory for it
 	vm.frameCount = 0;
+	vm.openUpvalues = NULL;
 }
 
 // IMPORTANT
@@ -175,9 +176,60 @@ static bool callValue(Value callee, int argCount)
 // get corresponding upvalue 
 static ObjUpvalue* captureUpvalue(Value* local)
 {
+	// set up the linked list
+	ObjUpvalue* prevUpvalue = NULL;
+	ObjUpvalue* upvalue = vm.openUpvalues;		// assign at the start of the list
+
+	// look for an existing upvalue in the list
+	/*  LINKED LIST
+	1. start at the head of the list, which is the upvalue CLOSET to the TOP OF THE STACK
+	2. walk through the list, using a little pointer comparison to iterate past every upvalue pointing
+		to slots ABOVE the one we are looking for
+	-- upvalue->location (array of the indexes for the locals) is the stack
+	
+	THREE ways to exit the loop:
+	1. local slot stopped is the slot we're looking for
+	2. ran ouf ot upvalues to search
+	3. found an upvalue whose local slot is BELOW the one we're looking for
+	*/
+	while (upvalue != NULL && upvalue->location > local)	// pointer comparison: only find the ones ABOVE local
+	{
+		prevUpvalue = upvalue;
+		upvalue = upvalue->next;
+	}
+
+	if (upvalue != NULL && upvalue->location == local)		// if the location/local/indeces match
+	{
+		return upvalue;				// return already created upvalue
+	}
+
 	ObjUpvalue* createdUpvalue = newUpvalue(local);
+	createdUpvalue->next = upvalue;			// insert at the front
+	
+	if (prevUpvalue == NULL)	// ran out of values to search
+	{
+		vm.openUpvalues = createdUpvalue;			// set pointer to the newly added upvalue
+	}
+	else			// found local slot BELOW the one we are looking for
+	{
+		prevUpvalue->next = createdUpvalue;				// link next slot(the value below) to the newly inserted upvalue
+	}
+	
 	return createdUpvalue;
 }
+
+// closes every upvalue it can find that points to the slot or any above the stack
+static void closeUpvalues(Value* last)			// takes pointer to stack slot
+{
+	while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last)
+	{
+		ObjUpvalue* upvalue = vm.openUpvalues;	// pointer to list of openupvalues
+		upvalue->closed = *upvalue->location;
+		upvalue->location = &upvalue->closed;
+		vm.openUpvalues = upvalue->next;
+	}
+}
+
 
 // comparison for OP_NOT
 static bool isFalsey(Value value)
@@ -451,6 +503,14 @@ READ STRING:
 				break;
 			}
 
+			case OP_CLOSE_UPVALUE:
+			{
+				closeUpvalues(vm.stackTop - 1);		// put address to the slot
+				pop();			// pop from the stack
+				break;
+			}
+
+
 			case OP_JUMP:		// will always jump
 			{
 				uint16_t offset = READ_SHORT();
@@ -517,6 +577,8 @@ READ STRING:
 			case OP_RETURN:				
 			{
 				Value result = pop();	// if function returns a value, value will beon top of the stack
+
+				closeUpvalues(frame->slots);   // close lingering closed values
 
 				vm.frameCount--;
 				if (vm.frameCount == 0)		// return from 'main()'/script function

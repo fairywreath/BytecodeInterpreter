@@ -35,9 +35,12 @@ typedef struct
 	Value stack[STACK_MAX];			// stack array is 'indirectly' declared inline here
 	Value* stackTop;			// pointer to the element just PAST the element containing the top value of the stack
 
-	Obj* objects;		// pointer to the header of the Obj itself/node, start of the list
 	Table globals;		// for storing global variables
 	Table strings;		// for string interning, to make sure every equal string takes one memory
+
+	ObjUpvalue* openUpvalues;		// track all upvalues; points to the first node of the linked list
+
+	Obj* objects;		// pointer to the header of the Obj itself/node, start of the list
 } VM;
 
 // rseult that responds from the running VM

@@ -47,6 +47,7 @@ typedef enum
 	OP_LESS,
 
 	OP_SWITCH_EQUAL,
+	OP_CLOSE_UPVALUE,
 
 	OP_JUMP,
 	OP_JUMP_IF_FALSE,		// takes a 16-bit operand
