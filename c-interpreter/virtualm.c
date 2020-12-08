@@ -166,6 +166,13 @@ static bool callValue(Value callee, int argCount)
 	{
 		switch (OBJ_TYPE(callee))
 		{
+		case OBJ_INSTANCE:		// create class instance
+		{
+			ObjClass* kelas = AS_CLASS(callee);
+			// create new instance here
+			vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(kelas));		// - argcounts as above values are parameters
+			return true;
+		}
 		case OBJ_CLOSURE:				// ensure type is function
 			return call(AS_CLOSURE(callee), argCount);		// call to function happens here
 

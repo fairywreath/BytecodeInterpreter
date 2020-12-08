@@ -80,6 +80,16 @@ ObjClass* newClass(ObjString* name)
 }
 
 
+// create new class instance
+ObjInstance* newInstance(ObjClass* kelas)
+{
+	ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+	instance->kelas = kelas;
+	initTable(&instance->fields);		// memory address of the fields
+	return instance;
+}
+
+
 ObjFunction* newFunction()
 {
 	ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
@@ -176,6 +186,9 @@ void printObject(Value value)
 	{
 	case OBJ_CLASS:
 		printf("%s", AS_CLASS(value)->name->chars);
+		break;
+	case OBJ_INSTANCE:
+		printf("%s instance", AS_INSTANCE(value)->kelas->name->chars);
 		break;
 	case OBJ_CLOSURE:
 		printFunction(AS_CLOSURE(value)->function);

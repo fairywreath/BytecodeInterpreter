@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "chunk.h"
+#include "hasht.h"
 #include "value.h"
 
 
@@ -13,6 +14,7 @@
 // macros for checking(bool) whether an object is a certain type
 #define IS_CLASS(value)		isObjType(value, OBJ_CLASS)
 #define IS_FUNCTION(value)	isObjType(value, OBJ_FUNCTION)
+#define IS_INSTANCE(value)	isObjType(value, OBJ_INSTANCE)
 #define IS_NATIVE(value)	isObjType(value, OBJ_NATIVE)
 #define IS_STRING(value)	isObjType(value, OBJ_STRING)		// takes in raw Value, not raw Obj*
 #define IS_CLOSURE(value)	isObjType(value, OBJ_CLOSURE)
@@ -21,6 +23,7 @@
 // take a Value that is expected to conatin a pointer to the heap, first returns pointer second the charray itself
 // used to cast as an ObjType pointer, from a Value type
 #define AS_CLASS(value)		((ObjClass*)AS_OBJ(value))
+#define AS_INSTANCE(value)  ((ObjInstance*)AS_OBJ(value))
 #define AS_CLOSURE(value)	((ObjClosure*)AS_OBJ(value))
 #define AS_STRING(value)	((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value)	(((ObjString*)AS_OBJ(value))->chars)		// get chars(char*) from ObjString pointer
@@ -30,6 +33,7 @@
 
 typedef enum
 {
+	OBJ_INSTANCE,
 	OBJ_CLASS,
 	OBJ_CLOSURE,
 	OBJ_FUNCTION,
@@ -111,8 +115,16 @@ typedef struct
 	ObjString* name;			// not needed for uer's program, but helps the dev in debugging
 } ObjClass;
 
+typedef struct
+{
+	Obj obj;			// inherits from object, the "object" tag
+	ObjClass* kelas;	// pointer to class types
+	Table fields;		// use a hash table to store fields
+} ObjInstance;
+
 
 ObjClass* newClass(ObjString* name);
+ObjInstance* newInstance(ObjClass* kelas);
 ObjFunction* newFunction();
 ObjNative* newNative(NativeFn function);
 ObjClosure* newClosure(ObjFunction* function);			// create closure from ObjFunction

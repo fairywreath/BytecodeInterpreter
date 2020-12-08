@@ -65,6 +65,13 @@ void freeObject(Obj* object)		// to handle different types
 		FREE(ObjClass, object);
 		break;
 	}
+	case OBJ_INSTANCE:
+	{
+		ObjInstance* instance = (ObjInstance*)object;
+		freeTable(&instance->fields);
+		FREE(ObjInstance, object);
+		break;
+	}
 	case OBJ_CLOSURE:
 	{
 		// free upvalues
@@ -217,6 +224,13 @@ static void blackenObject(Obj* object)
 		break;
 	}
 
+	case OBJ_INSTANCE:
+	{
+		ObjInstance* instance = (ObjInstance*)object;
+		markObject((Obj*)instance->kelas);
+		markTable(&instance->fields);
+		break;
+	}
 		// these two objects contain NO OUTGOING REFERENCES there is nothing to traverse
 	case OBJ_NATIVE:
 	case OBJ_STRING:
