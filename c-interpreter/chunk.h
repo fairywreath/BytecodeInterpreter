@@ -54,6 +54,8 @@ typedef enum
 	OP_CALL,
 	OP_LOOP, 
 	OP_CLOSURE,
+	OP_CLASS,
+
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum
 					// in C, you cannot have enums called simply by their rvalue 'string' names, use typdef to define them

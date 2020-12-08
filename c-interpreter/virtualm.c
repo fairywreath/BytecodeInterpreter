@@ -582,9 +582,13 @@ READ STRING:
 					}
 				}
 
-
 				break;
 			}
+
+			case OP_CLASS:
+				push(OBJ_VAL(newClass(READ_STRING())));			// load string for the class' name and push it onto the stack
+				break;
+
 
 			case OP_RETURN:				
 			{

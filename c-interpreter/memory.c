@@ -58,6 +58,13 @@ void freeObject(Obj* object)		// to handle different types
 
 	switch (object->type)
 	{
+	case OBJ_CLASS:
+	{
+		// free class type
+		ObjClass* kelas = (ObjClass*)object;
+		FREE(ObjClass, object);
+		break;
+	}
 	case OBJ_CLOSURE:
 	{
 		// free upvalues
@@ -181,6 +188,7 @@ static void blackenObject(Obj* object)
 	{
 	case OBJ_UPVALUE:		// simply mark the closed value
 		markValue(((ObjUpvalue*)object)->closed);
+		break;
 
 	case OBJ_FUNCTION:		// mark the name and its value array of constants
 	{
@@ -199,6 +207,14 @@ static void blackenObject(Obj* object)
 		{
 			markObject((Obj*)closure->upvalues[i]);
 		}
+		break;
+	}
+
+	case OBJ_CLASS:
+	{
+		ObjClass* kelas = (ObjClass*)object;
+		markObject((Obj*)kelas->name);
+		break;
 	}
 
 		// these two objects contain NO OUTGOING REFERENCES there is nothing to traverse

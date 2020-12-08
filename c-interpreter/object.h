@@ -10,6 +10,8 @@
 
 #define OBJ_TYPE(value)	(AS_OBJ(value)->type)		// extracts the tag
 
+// macros for checking(bool) whether an object is a certain type
+#define IS_CLASS(value)		isObjType(value, OBJ_CLASS)
 #define IS_FUNCTION(value)	isObjType(value, OBJ_FUNCTION)
 #define IS_NATIVE(value)	isObjType(value, OBJ_NATIVE)
 #define IS_STRING(value)	isObjType(value, OBJ_STRING)		// takes in raw Value, not raw Obj*
@@ -17,7 +19,8 @@
 
 // macros to tell that it is safe when creating a tag, by returning the requested type
 // take a Value that is expected to conatin a pointer to the heap, first returns pointer second the charray itself
-// used to cast as a value
+// used to cast as an ObjType pointer, from a Value type
+#define AS_CLASS(value)		((ObjClass*)AS_OBJ(value))
 #define AS_CLOSURE(value)	((ObjClosure*)AS_OBJ(value))
 #define AS_STRING(value)	((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value)	(((ObjString*)AS_OBJ(value))->chars)		// get chars(char*) from ObjString pointer
@@ -27,6 +30,7 @@
 
 typedef enum
 {
+	OBJ_CLASS,
 	OBJ_CLOSURE,
 	OBJ_FUNCTION,
 	OBJ_NATIVE,
@@ -91,9 +95,6 @@ typedef struct {
 } ObjNative;
 
 
-
-
-
 struct ObjString			// using struct inheritance
 {
 	Obj obj;
@@ -103,7 +104,15 @@ struct ObjString			// using struct inheritance
 };
 
 
+// class object type
+typedef struct
+{
+	Obj obj;
+	ObjString* name;			// not needed for uer's program, but helps the dev in debugging
+} ObjClass;
 
+
+ObjClass* newClass(ObjString* name);
 ObjFunction* newFunction();
 ObjNative* newNative(NativeFn function);
 ObjClosure* newClosure(ObjFunction* function);			// create closure from ObjFunction

@@ -72,6 +72,13 @@ static ObjString* allocateString(char* chars, int length, uint32_t hash)			// pa
 	return string;
 }
 
+ObjClass* newClass(ObjString* name)
+{
+	ObjClass* kelas = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);		// kelas not class for compiling in c++
+	kelas->name = name;
+	return kelas;
+}
+
 
 ObjFunction* newFunction()
 {
@@ -167,6 +174,9 @@ void printObject(Value value)
 	// first class objects can be printed; string and functions
 	switch (OBJ_TYPE(value))
 	{
+	case OBJ_CLASS:
+		printf("%s", AS_CLASS(value)->name->chars);
+		break;
 	case OBJ_CLOSURE:
 		printFunction(AS_CLOSURE(value)->function);
 		break;

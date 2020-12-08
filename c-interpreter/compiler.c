@@ -902,6 +902,21 @@ static void function(FunctionType type)
 
 }
 
+
+static void classDeclaration()
+{
+	consume(TOKEN_IDENTIFIER, "Expect class name.");
+	uint8_t nameConstant = identifierConstant(&parser.previous);		// add to constant table as a string, return its index
+	declareVariable();						// declare that name variable
+
+	emitBytes(OP_CLASS, nameConstant);			// takes opcode and takes the constant table index
+	defineVariable(nameConstant);			// add it to the global hasht; we must DEFINE AFTER DECLARE to use it
+
+	consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+	consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+}
+
+
 static void funDeclaration()
 {
 	uint8_t global = parseVariable("Expect function name.");
@@ -1202,7 +1217,11 @@ static void synchronize()
 
 static void declaration()
 {
-	if (match(TOKEN_FUN))
+	if (match(TOKEN_CLASS))
+	{
+		classDeclaration();
+	}
+	else if (match(TOKEN_FUN))
 	{
 		funDeclaration();
 	}

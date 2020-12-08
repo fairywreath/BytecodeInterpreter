@@ -161,6 +161,9 @@ int disassembleInstruction(Chunk* chunk, int offset)
 		return offset;
 	}
 
+	case OP_CLASS:
+		return constantInstruction("OP_CLASS", chunk, offset);
+
 	case OP_RETURN:
 		return simpleInstruction("OP_RETURN", offset);		// dispatch to a utility function to display it
 
