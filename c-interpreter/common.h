@@ -15,4 +15,10 @@
 // local variables array in compiler, max of 1 byte is 255
 #define UINT8_COUNT (UINT8_MAX + 1)
 
+/* diagnostic tools for garbage collector	*/
+// 'stress' mode; if this is on, GC runs as often as it possibly can
+//#define DEBUG_STRESS_GC
+#define DEBUG_LOG_GC
+
+
 # endif

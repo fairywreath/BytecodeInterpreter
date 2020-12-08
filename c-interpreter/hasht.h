@@ -30,4 +30,10 @@ bool tableDelete(Table* table, ObjString* key);
 void tableAddAll(Table* from, Table* to);			// copy everything from old table to new table
 ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t hash);		// used in VM, for string interning
 
+// removing string intern pointers
+void tableRemoveWhite(Table* table);
+
+// mark global variables, used in VM for garbage collection
+void markTable(Table* table);
+
 #endif

@@ -83,10 +83,20 @@ static void defineNative(const char* name, NativeFn function)
 
 void initVM()
 {
-	resetStack();
+	resetStack();			// initialiing the Value stack, also initializing the callframe count
 	vm.objects = NULL;
 	initTable(&vm.globals);
 	initTable(&vm.strings);
+
+	// initializing gray marked obj stack for garbage collection
+	vm.grayCapacity = 0;
+	vm.grayCount = 0;
+	vm.grayStack = NULL;
+
+	// self adjusting heap to control frequency of GC
+	vm.bytesAllocated = 0;
+	vm.nextGC = 1024 * 1024;
+
 
 	defineNative("clock", clockNative);
 }
@@ -243,8 +253,8 @@ static bool isFalsey(Value value)
 // string concatenation
 static void concatenate()
 {
-	ObjString* second = AS_STRING(pop());
-	ObjString* first = AS_STRING(pop());
+	ObjString* second = AS_STRING(peek(0));				// peek, so we do not pop it off if calling a GC is needed
+	ObjString* first = AS_STRING(peek(1));
 	
 	int length = first->length + second->length;
 	char* chars = ALLOCATE(char, length + 1);		// dynamically allocate memory for the char, chars is now a NULL string
@@ -260,6 +270,8 @@ static void concatenate()
 	chars[length] = '\0';			// IMPORTANT-> terminating character for Cstring, if not put will get n2222
 
 	ObjString* result = takeString(chars, length);		// declare new ObjString ptr
+	pop();			// pop the two strings, garbage collection
+	pop();		
 	push(OBJ_VAL(result));
 }
 

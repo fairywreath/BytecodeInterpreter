@@ -21,11 +21,18 @@ static Obj* allocateObject(size_t size, ObjType type)
 {
 	Obj* object = (Obj*)reallocate(NULL, 0, size);		// allocate memory for obj
 	object->type = type;
-	
+	object->isMarked = false;
+
 	// every time an object is allocated, insert to the list
 	// insert as the HEAD; the latest one inserted will be at the start
 	object->next = vm.objects;			// vm from virtualm.h, with extern
 	vm.objects = object;		
+
+#ifdef DEBUG_LOG_GC
+	printf("%p allocate %ld for %d\n", (void*)object, size, type);			// %ld prints LONG INT
+																			// (void*) for 'native pointer type'
+#endif
+
 
 	return object;
 }
@@ -57,8 +64,10 @@ static ObjString* allocateString(char* chars, int length, uint32_t hash)			// pa
 	string->chars = chars;
 	string->hash = hash;
 
+	push(OBJ_VAL(string));		// garbage collection
 	//printf("allocate\n");
 	tableSet(&vm.strings, string, NULL_VAL);		// for string interning
+	pop();			// garbage collection
 
 	return string;
 }

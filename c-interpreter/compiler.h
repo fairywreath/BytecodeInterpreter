@@ -8,4 +8,7 @@
 
 ObjFunction* compile(const char* source);			// receives the source code(in charray) and the chunk itself
 
+// for garbage collection
+void markCompilerRoots();
+
 #endif

@@ -167,3 +167,29 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
 		index = (index + 1) % table->capacity;
 	}
 }
+
+// removing unreachable pointers, used to remove string interns in garbage collection
+void tableRemoveWhite(Table* table)
+{
+	for (int i = 0; i < table->capacity; i++)
+	{
+		Entry* entry = &table->entries[i];
+		if (entry->key != NULL && !entry->key->obj.isMarked)		// remove not marked (string) object pointers
+		{
+			tableDelete(table, entry->key);
+		}
+	}
+}
+
+
+// mark global variables, used in VM for garbage collection
+void markTable(Table* table)
+{
+	for (int i = 0; i < table->capacity; i++)
+	{
+		Entry* entry = &table->entries[i];
+		// need to mark both the STRING KEYS and the actual value/obj itself
+		markObject((Obj*)entry->key);			// mark the string key(ObjString type)
+		markValue(entry->value);				// mark the actual avlue
+	}
+}

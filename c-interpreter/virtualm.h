@@ -41,6 +41,16 @@ typedef struct
 	ObjUpvalue* openUpvalues;		// track all upvalues; points to the first node of the linked list
 
 	Obj* objects;		// pointer to the header of the Obj itself/node, start of the list
+						// nicely used in GARBAGE COLLECTION, where objects are nicely erased in the middle
+
+	// stack to store gray marked Objects for garbage collection
+	int grayCapacity;		
+	int grayCount;
+	Obj** grayStack;			// array of pointers, array of arrays, pointing to a particular subgraph
+
+	// self-adjusting-g-heap, to control frequency of GC, bytesAllocated is the running total
+	size_t bytesAllocated;		// size_t is a 32 bit(integer/4bytes), represents size of an object in bytes
+	size_t nextGC;				// threhsold that triggers the GC
 } VM;
 
 // rseult that responds from the running VM

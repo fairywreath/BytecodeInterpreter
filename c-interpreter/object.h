@@ -40,6 +40,9 @@ struct Obj					// as no typedef is used, 'struct' itself will always havae to be
 	ObjType type;
 	struct Obj* next;		// linked list or intrusive list, to avoid memory leaks, obj itself as a node
 							// traverse the list to find every object that has been allocated on the heap
+
+	// for mark-sweep garbage collection
+	bool isMarked;
 };
 
 // for functions and calls

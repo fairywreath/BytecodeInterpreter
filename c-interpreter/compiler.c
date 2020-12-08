@@ -5,7 +5,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "scanner.h"
-#include "memory.h"			// for switch statements
+#include "memory.h"			// for switch statements and marking the roots
 
 /*	A compiler has two jobs really:
 	- it parses the user's source code
@@ -1106,9 +1106,13 @@ static void switchStatement()
 		emitByte(OP_POP);		// pop the 'false' statment from OP_SWITCH_EQUAL
 	} while (match(TOKEN_CASE));
 
-	consume(TOKEN_DEFAULT, "Default case not provided for switch.");
-	consume(TOKEN_COLON, "Expect ':' default case.");
-	statement();		// running the default statement
+	if (match(TOKEN_DEFAULT))
+	{
+		consume(TOKEN_COLON, "Expect ':' default case.");
+		statement();		// running the default statement
+	}
+	//consume(TOKEN_DEFAULT, "Default case not provided for switch.");
+
 
 	// patchJump for each available jump
 	for (uint8_t i = 0; i <= casesCount; i++)
@@ -1273,3 +1277,14 @@ ObjFunction* compile(const char* source)
 	return parser.hadError ? NULL : function;		// if no error return true
 }
 
+
+// marking compiler roots, for garbage collection
+void markCompilerRoots()
+{
+	Compiler* compiler = current;
+	while (compiler != NULL)
+	{
+		markObject((Obj*)compiler->function);
+		compiler = compiler->enclosing;
+	}
+}

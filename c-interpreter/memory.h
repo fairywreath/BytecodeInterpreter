@@ -43,7 +43,12 @@
 // all operations from allocation, freeing, chaning the size of existing ones
 // void* mean it first accepts a data type
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
-	
+
+// garbace collection, using mark-sweep/tracing
+void markObject(Obj* object);
+void markValue(Value value);
+void collectGarbage();
+
 void freeObjects();			
 
 #endif
