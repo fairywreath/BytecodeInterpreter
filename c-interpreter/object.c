@@ -37,6 +37,16 @@ static Obj* allocateObject(size_t size, ObjType type)
 	return object;
 }
 
+// new bound method for classes
+ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method)
+{
+	ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod, OBJ_BOUND_METHOD);
+	bound->receiver = receiver;
+	bound->method = method;
+	return bound;
+}
+
+
 // create new closure
 ObjClosure* newClosure(ObjFunction* function)
 {
@@ -76,6 +86,7 @@ ObjClass* newClass(ObjString* name)
 {
 	ObjClass* kelas = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);		// kelas not class for compiling in c++
 	kelas->name = name;
+	initTable(&kelas->methods);
 	return kelas;
 }
 
@@ -184,6 +195,9 @@ void printObject(Value value)
 	// first class objects can be printed; string and functions
 	switch (OBJ_TYPE(value))
 	{
+	case OBJ_BOUND_METHOD:
+		printFunction(AS_BOUND_METHOD(value)->method->function);
+		break;
 	case OBJ_CLASS:
 		printf("%s", AS_CLASS(value)->name->chars);
 		break;

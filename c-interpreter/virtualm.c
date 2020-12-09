@@ -166,7 +166,12 @@ static bool callValue(Value callee, int argCount)
 	{
 		switch (OBJ_TYPE(callee))
 		{
-		case OBJ_INSTANCE:		// create class instance
+		case OBJ_BOUND_METHOD:
+		{
+			ObjBoundMethod* bound = AS_BOUND_METHOD(callee);		// get ObjBoundMethod from value type(callee)
+			return call(bound->method, argCount);			//	run call to execute
+		}
+		case OBJ_CLASS:		// create class instance
 		{
 			ObjClass* kelas = AS_CLASS(callee);
 			// create new instance here
@@ -189,6 +194,25 @@ static bool callValue(Value callee, int argCount)
 		}
 	}
 }
+
+
+// bind method and wrap it in a new ObjBoundMethod
+static bool bindMethod(ObjClass* kelas, ObjString* name)
+{
+	Value method;			
+	if (!tableGet(&kelas->methods, name, &method))			// get method from table and bind it
+	{
+		// if method not found
+		runtimeError("Undefined property %s.", name->chars);
+		return false;
+	}
+	ObjBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(method));		// wrap method in a new ObjBoundMethodd
+
+	pop();		// pop the class instance
+	push(OBJ_VAL(bound));
+	return true;
+}
+
 
 // get corresponding upvalue 
 static ObjUpvalue* captureUpvalue(Value* local)
@@ -246,6 +270,16 @@ static void closeUpvalues(Value* last)			// takes pointer to stack slot
 		vm.openUpvalues = upvalue->next;
 	}
 }
+
+// defining method for class type
+static void defineMethod(ObjString* name)
+{
+	Value method = peek(0);				// method/closure is at the top of the stack
+	ObjClass* kelas = AS_CLASS(peek(1));	// class is at the 2nd top
+	tableSet(&kelas->methods, name, method);	// add to hashtable
+	pop();				// pop the method
+}
+
 
 
 // comparison for OP_NOT
@@ -521,6 +555,53 @@ READ STRING:
 				*frame->closure->upvalues[slot]->location = peek(0);		// set to the topmost stack
 				break;
 			}
+			
+			case OP_GET_PROPERTY:
+			{
+				// to make sure only instances are allowed to have fields
+				if (!IS_INSTANCE(peek(0)))
+				{
+					runtimeError("Only instances have properties.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				ObjInstance* instance = AS_INSTANCE(peek(0));		// get instance from top most stack
+				ObjString* name = READ_STRING();					// get identifier name
+
+				Value value;		// set up value to add to the stack
+				if (tableGet(&instance->fields, name, &value))		// get from fields hash table, assign it to instance
+				{
+					pop();		// pop the instance itself
+					push(value);
+					break;
+				}
+				
+				if (!bindMethod(instance->kelas, name))		// no method as well, error
+				{
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_SET_PROPERTY:
+			{
+				if (!IS_INSTANCE(peek(1)))		// if not an instance
+				{
+					runtimeError("Identifier must be a class instance.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				// not top most, as the top most is reserved for the new value to be set
+				ObjInstance* instance = AS_INSTANCE(peek(1));		
+				tableSet(&instance->fields, READ_STRING(), peek(0));		//peek(0) is the new value
+
+				Value value = pop();		// pop the already set value
+				pop();		// pop the property instance itself
+				push(value);		// push the value back again
+				break;	
+			}
+
+
 
 			case OP_CLOSE_UPVALUE:
 			{
@@ -596,6 +677,9 @@ READ STRING:
 				push(OBJ_VAL(newClass(READ_STRING())));			// load string for the class' name and push it onto the stack
 				break;
 
+			case OP_METHOD:
+				defineMethod(READ_STRING());		// get name of the method
+				break;
 
 			case OP_RETURN:				
 			{

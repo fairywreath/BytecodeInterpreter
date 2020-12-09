@@ -12,6 +12,7 @@
 #define OBJ_TYPE(value)	(AS_OBJ(value)->type)		// extracts the tag
 
 // macros for checking(bool) whether an object is a certain type
+#define IS_BOUND_METHOD(value)	isObjType(value, OBJ_BOUND_METHOD)
 #define IS_CLASS(value)		isObjType(value, OBJ_CLASS)
 #define IS_FUNCTION(value)	isObjType(value, OBJ_FUNCTION)
 #define IS_INSTANCE(value)	isObjType(value, OBJ_INSTANCE)
@@ -22,6 +23,7 @@
 // macros to tell that it is safe when creating a tag, by returning the requested type
 // take a Value that is expected to conatin a pointer to the heap, first returns pointer second the charray itself
 // used to cast as an ObjType pointer, from a Value type
+#define AS_BOUND_METHOD(value)	((ObjBoundMethod*)AS_OBJ(value))
 #define AS_CLASS(value)		((ObjClass*)AS_OBJ(value))
 #define AS_INSTANCE(value)  ((ObjInstance*)AS_OBJ(value))
 #define AS_CLOSURE(value)	((ObjClosure*)AS_OBJ(value))
@@ -33,6 +35,7 @@
 
 typedef enum
 {
+	OBJ_BOUND_METHOD,
 	OBJ_INSTANCE,
 	OBJ_CLASS,
 	OBJ_CLOSURE,
@@ -113,6 +116,7 @@ typedef struct
 {
 	Obj obj;
 	ObjString* name;			// not needed for uer's program, but helps the dev in debugging
+	Table methods;				// hash table for storing methods
 } ObjClass;
 
 typedef struct
@@ -123,6 +127,16 @@ typedef struct
 } ObjInstance;
 
 
+// struct for class methods
+typedef struct
+{
+	Obj obj;
+	Value receiver;					// wraps receiver and function/method/closure together, receiver is the ObjInstance / lcass type
+	ObjClosure* method;
+} ObjBoundMethod;		
+
+
+ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method);
 ObjClass* newClass(ObjString* name);
 ObjInstance* newInstance(ObjClass* kelas);
 ObjFunction* newFunction();

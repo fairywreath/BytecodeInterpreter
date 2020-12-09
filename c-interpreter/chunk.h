@@ -30,10 +30,11 @@ typedef enum
 	OP_DEFINE_GLOBAL,
 	OP_GET_GLOBAL,
 	OP_SET_GLOBAL,
-
-	OP_SET_UPVALUE,
 	OP_GET_UPVALUE,
-
+	OP_SET_UPVALUE,
+	OP_GET_PROPERTY,
+	OP_SET_PROPERTY,
+	
 	// binary operators
 	OP_ADD,
 	OP_SUBTRACT,
@@ -55,6 +56,7 @@ typedef enum
 	OP_LOOP, 
 	OP_CLOSURE,
 	OP_CLASS,
+	OP_METHOD,
 
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum

@@ -594,6 +594,22 @@ static void call(bool canAssign)
 	emitBytes(OP_CALL, argCount);			// write on the chunk
 }
 
+// class members/fields/properties
+static void dot(bool canAssign)
+{
+	consume(TOKEN_IDENTIFIER, "Expect propery name after class instance.");
+	uint8_t name = identifierConstant(&parser.previous);			// already consumed
+
+	if (canAssign && match(TOKEN_EQUAL))		// assignment
+	{	
+		expression();					// evalute expression to be set
+		emitBytes(OP_SET_PROPERTY, name);
+	}
+	else								// simply get
+	{
+		emitBytes(OP_GET_PROPERTY, name);
+	}
+}
 
 static void literal(bool canAssign)
 {
@@ -737,7 +753,7 @@ ParseRule rules[] =
 	[TOKEN_LEFT_BRACE]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_RIGHT_BRACE]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_COMMA]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_DOT]				= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_DOT]				= {NULL,     dot,   PREC_CALL},
 	[TOKEN_MINUS]			= {unary,    binary, PREC_TERM},
 	[TOKEN_PLUS]			= {NULL,     binary, PREC_TERM},
 	[TOKEN_SEMICOLON]		= {NULL,     NULL,   PREC_NONE},
@@ -761,6 +777,7 @@ ParseRule rules[] =
 	[TOKEN_FOR]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_FUN]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_IF]				= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_SWITCH] = {NULL,     NULL,   PREC_NONE},
 	[TOKEN_NULL]			= {literal,     NULL,   PREC_NONE},
 	[TOKEN_OR]				= {NULL,     or_,   PREC_OR},
 	[TOKEN_PRINT]			= {NULL,     NULL,   PREC_NONE},
@@ -902,18 +919,41 @@ static void function(FunctionType type)
 
 }
 
+// create method for class type
+static void method()
+{
+	consume(TOKEN_IDENTIFIER, "Expect method name.");
+	uint8_t constant = identifierConstant(&parser.previous);	// get method name
+	
+	// method body
+	FunctionType type = TYPE_FUNCTION;
+	function(type);				// process the function
+
+
+
+	emitBytes(OP_METHOD, constant);
+}
+
 
 static void classDeclaration()
 {
 	consume(TOKEN_IDENTIFIER, "Expect class name.");
+	Token className = parser.previous;					// get class name
 	uint8_t nameConstant = identifierConstant(&parser.previous);		// add to constant table as a string, return its index
 	declareVariable();						// declare that name variable
 
 	emitBytes(OP_CLASS, nameConstant);			// takes opcode and takes the constant table index
 	defineVariable(nameConstant);			// add it to the global hasht; we must DEFINE AFTER DECLARE to use it
 
+	namedVariable(className, false);			// helper function to geenrate code that LOADS a variable with a given name to te stack
 	consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
+	{
+		method();
+	}
+
 	consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+	emitByte(OP_POP);			// no longer need the class, pop it
 }
 
 

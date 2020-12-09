@@ -58,10 +58,15 @@ void freeObject(Obj* object)		// to handle different types
 
 	switch (object->type)
 	{
+	case OBJ_BOUND_METHOD:
+		FREE(ObjBoundMethod, object);
+		break;
+	
 	case OBJ_CLASS:
 	{
 		// free class type
 		ObjClass* kelas = (ObjClass*)object;
+		freeTable(&kelas->methods);
 		FREE(ObjClass, object);
 		break;
 	}
@@ -193,6 +198,14 @@ static void blackenObject(Obj* object)
 
 	switch (object->type)
 	{
+	case OBJ_BOUND_METHOD:
+	{
+		ObjBoundMethod* bound = (ObjBoundMethod*)object;
+		markValue(bound->receiver);
+		markObject((Obj*)bound->method);
+		break;
+	}
+
 	case OBJ_UPVALUE:		// simply mark the closed value
 		markValue(((ObjUpvalue*)object)->closed);
 		break;
@@ -221,6 +234,7 @@ static void blackenObject(Obj* object)
 	{
 		ObjClass* kelas = (ObjClass*)object;
 		markObject((Obj*)kelas->name);
+		markTable(&kelas->methods);
 		break;
 	}
 
