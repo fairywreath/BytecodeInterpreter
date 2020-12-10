@@ -57,6 +57,7 @@ typedef enum
 	OP_CLOSURE,
 	OP_CLASS,
 	OP_METHOD,
+	OP_INVOKE,
 
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum

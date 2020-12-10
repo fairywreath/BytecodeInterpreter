@@ -27,6 +27,16 @@ static int constantInstruction(const char* name, Chunk* chunk, int offset)
 	return offset + 2;			//OP_RETURN is a single byte, and the other byte is the operand, hence offsets by 2
 }
 
+static int invokeInstruction(const char* name, Chunk* chunk, int offset)
+{
+	uint8_t constant = chunk->code[offset + 1];				// get index of the name first
+	uint8_t argCount = chunk->code[offset + 2];				// then get number of arguments
+	printf("%-16s (%d args) %4d", name, argCount, constant);
+	printValue(chunk->constants.values[constant]);			// print the method
+	printf("\n");
+	return offset + 3;
+}
+
 static int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset)
 {
 	uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);	// get jump
@@ -143,9 +153,15 @@ int disassembleInstruction(Chunk* chunk, int offset)
 	case OP_JUMP_IF_FALSE:
 		return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
 
-
 	case OP_CALL:
 		return byteInstruction("OP_CALL", chunk, offset);
+
+	case OP_METHOD:
+		return constantInstruction("OP_METHOD", chunk, offset);
+
+	case OP_INVOKE:
+		return invokeInstruction("OP_INVOKE", chunk, offset);
+
 
 	case OP_CLOSURE:
 	{

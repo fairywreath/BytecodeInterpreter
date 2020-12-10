@@ -634,6 +634,18 @@ static void dot(bool canAssign)
 		expression();					// evalute expression to be set
 		emitBytes(OP_SET_PROPERTY, name);
 	}
+	else if (match(TOKEN_LEFT_PAREN))			// for running class methods, access the method and call it at the same time
+	{
+		uint8_t argCount = argumentList();
+		
+		/* new OP_INVOKE opcode that takes two operands:
+		1. the index of the property name in the constant table
+		2. the number of arguments passed in the methods
+		*** combines OP_GET_PROPERTY and OP_CALL
+		*/
+		emitBytes(OP_INVOKE, name);			
+		emitByte(argCount);
+	}
 	else								// simply get
 	{
 		emitBytes(OP_GET_PROPERTY, name);

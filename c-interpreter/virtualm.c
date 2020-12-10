@@ -149,8 +149,8 @@ static bool call(ObjClosure* closure, int argCount)
 	// as CallFrame is an array, to ensure array does not overflow
 	if (vm.frameCount == FRAMES_MAX)
 	{
-		runtimeError("Stack overflow.");
-		return false;
+	runtimeError("Stack overflow.");
+	return false;
 	}
 
 	// get pointer to next in frame array
@@ -182,7 +182,7 @@ static bool callValue(Value callee, int argCount)
 			ObjClass* kelas = AS_CLASS(callee);
 			// create new instance here
 			vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(kelas));		// - argcounts as above values are parameters
-			
+
 			// initializer
 			Value initializer;
 			// if we find one from the table
@@ -195,7 +195,7 @@ static bool callValue(Value callee, int argCount)
 				runtimeError("Expected 0  arguments but got %d\n", argCount);
 				return false;
 			}
-			
+
 			return true;
 		}
 		case OBJ_CLOSURE:				// ensure type is function
@@ -210,10 +210,54 @@ static bool callValue(Value callee, int argCount)
 			return true;
 		}
 		default:	// non callable
-			break;	
+			break;
 		}
 	}
 }
+
+
+static bool invokeFromClass(ObjClass* kelas, ObjString* name, int argCount)
+{
+	Value method;
+	if (!tableGet(&kelas->methods, name, &method))
+	{
+		runtimeError("Undefined property '%s'.", name->chars);
+		return false;
+	}
+
+	return call(AS_CLOSURE(method), argCount);
+}
+
+
+
+
+// invoke class method, access method + call method
+static bool invoke(ObjString* name, int argCount)
+{
+	Value receiver = peek(argCount);		// grab the receiver of the stack
+
+	// call method with wrong type, not an objinstance type
+	if (!IS_INSTANCE(receiver))
+	{
+		runtimeError("Tried to invoke a method from a non instance object.");
+		return false;
+	}
+
+	ObjInstance* instance = AS_INSTANCE(receiver);
+
+	// for fields()
+	Value value;
+	if (tableGet(&instance->fields, name, &value))
+	{
+		vm.stackTop[-argCount - 1] = value;
+		return callValue(value, argCount);
+	}
+
+
+
+	return invokeFromClass(instance->kelas, name, argCount);		// actual function that searches for method and calls it
+}
+
 
 
 // bind method and wrap it in a new ObjBoundMethod
@@ -700,6 +744,18 @@ READ STRING:
 			case OP_METHOD:
 				defineMethod(READ_STRING());		// get name of the method
 				break;
+
+			case OP_INVOKE:
+			{
+				ObjString* method = READ_STRING();
+				int argCount = READ_BYTE();
+				if (!invoke(method, argCount))		// new invoke function
+				{
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				frame = &vm.frames[vm.frameCount - 1];
+				break;
+			}
 
 			case OP_RETURN:				
 			{
