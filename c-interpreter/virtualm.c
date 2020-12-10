@@ -98,11 +98,16 @@ void initVM()
 	vm.nextGC = 1024 * 1024;
 
 
+	// init initalizer string
+	vm.initString = NULL;
+	vm.initString = copyString("init", 4);
+
 	defineNative("clock", clockNative);
 }
 
 void freeVM()
 {
+	vm.initString = NULL;
 	freeObjects();		// free all objects, from vm.objects
 	freeTable(&vm.globals);
 	freeTable(&vm.strings);
@@ -169,6 +174,7 @@ static bool callValue(Value callee, int argCount)
 		case OBJ_BOUND_METHOD:
 		{
 			ObjBoundMethod* bound = AS_BOUND_METHOD(callee);		// get ObjBoundMethod from value type(callee)
+			vm.stackTop[-argCount - 1] = bound->receiver;		// set [-] inside square brackes of top stack pointer to go down the stack
 			return call(bound->method, argCount);			//	run call to execute
 		}
 		case OBJ_CLASS:		// create class instance
@@ -176,6 +182,20 @@ static bool callValue(Value callee, int argCount)
 			ObjClass* kelas = AS_CLASS(callee);
 			// create new instance here
 			vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(kelas));		// - argcounts as above values are parameters
+			
+			// initializer
+			Value initializer;
+			// if we find one from the table
+			if (tableGet(&kelas->methods, vm.initString, &initializer))			// have a vm.initString as 'token', ObjString type	
+			{
+				return call(AS_CLOSURE(initializer), argCount);
+			}
+			else if (argCount != 0)   // if there ARE arguments but the initalizer method cannot be found
+			{
+				runtimeError("Expected 0  arguments but got %d\n", argCount);
+				return false;
+			}
+			
 			return true;
 		}
 		case OBJ_CLOSURE:				// ensure type is function

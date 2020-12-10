@@ -38,6 +38,8 @@ typedef struct
 	Table globals;		// for storing global variables
 	Table strings;		// for string interning, to make sure every equal string takes one memory
 
+	ObjString* initString;			// init string for class constructors
+
 	ObjUpvalue* openUpvalues;		// track all upvalues; points to the first node of the linked list
 
 	Obj* objects;		// pointer to the header of the Obj itself/node, start of the list

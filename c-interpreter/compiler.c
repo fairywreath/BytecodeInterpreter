@@ -82,7 +82,9 @@ typedef struct
 typedef enum
 {
 	TYPE_FUNCTION,
-	TYPE_SCRIPT		// top level main()
+	TYPE_SCRIPT,		// top level main()
+	TYPE_INITIALIZER,		// class constructors
+	TYPE_METHOD,		// class methods
 } FunctionType;
 
 // stack for local variables
@@ -100,7 +102,17 @@ typedef struct Compiler		// give name to struct itself(the name comes after), on
 	int scopeDepth;					// number of scopes/blocks surrounding the code
 } Compiler;
 
+
+// for 'this' tokens, a main() for class
+typedef struct ClassCompiler
+{
+	struct ClassCompiler* enclosing;
+	Token name;
+} ClassCompiler;
+
 Parser parser;
+
+ClassCompiler* currentClass = NULL;	
 
 Compiler* current = NULL;
 
@@ -230,7 +242,15 @@ static int emitJump(uint8_t instruction)
 //  emit specific return type
 static void emitReturn()
 {
-	emitByte(OP_NULL);			// for functions that return nothing
+	if (current->type == TYPE_INITIALIZER)		// class constructor
+	{	
+		emitBytes(OP_GET_LOCAL, 0);					// return the instance
+	}
+	else
+	{
+		emitByte(OP_NULL);			// for functions that return nothing
+	}
+	
 	emitByte(OP_RETURN);		// emit return type at the end of a compiler
 }
 
@@ -288,9 +308,18 @@ static void initCompiler(Compiler* compiler, FunctionType type)
 	// compiler implicitly claims slot zero for local variables
 	Local* local = &current->locals[current->localCount++];
 	local->isCaptured = false;
-	local->depth = 0;
-	local->name.start = "";
-	local->name.length = 0;
+	
+	// for this tags 
+	if (type != TYPE_FUNCTION)			// for none function types, for class methods
+	{
+		local->name.start = "this";
+		local->name.length = 4;
+	}
+	else                               // for functions
+	{
+		local->name.start = "";
+		local->name.length = 0;
+	}
 }
 
 static ObjFunction* endCompiler()
@@ -712,6 +741,19 @@ static void variable(bool canAssign)
 	namedVariable(parser.previous, canAssign);
 }
 
+// for class methods
+static void this_(bool canAssign)
+{
+	// if not inside a class
+	if (currentClass == NULL)
+	{
+		error("Cannot use 'this' outside of class.");
+		return;
+	}
+
+	variable(false);			// always false
+}
+
 // unary
 static void unary(bool canAssign)
 {
@@ -783,7 +825,7 @@ ParseRule rules[] =
 	[TOKEN_PRINT]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_RETURN]			= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_SUPER]			= {NULL,     NULL,   PREC_NONE},
-	[TOKEN_THIS]			= {NULL,     NULL,   PREC_NONE},
+	[TOKEN_THIS]			= {this_,     NULL,   PREC_NONE},
 	[TOKEN_TRUE]			= {literal,     NULL,   PREC_NONE},
 	[TOKEN_VAR]				= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_WHILE]			= {NULL,     NULL,   PREC_NONE},
@@ -926,10 +968,15 @@ static void method()
 	uint8_t constant = identifierConstant(&parser.previous);	// get method name
 	
 	// method body
-	FunctionType type = TYPE_FUNCTION;
+	FunctionType type = TYPE_METHOD;
+
+	// if initializer 
+	if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4) == 0)
+	{
+		type = TYPE_INITIALIZER;
+	}
+
 	function(type);				// process the function
-
-
 
 	emitBytes(OP_METHOD, constant);
 }
@@ -945,6 +992,13 @@ static void classDeclaration()
 	emitBytes(OP_CLASS, nameConstant);			// takes opcode and takes the constant table index
 	defineVariable(nameConstant);			// add it to the global hasht; we must DEFINE AFTER DECLARE to use it
 
+	// handle class enclosing for 'this'
+	ClassCompiler classCompiler;
+	classCompiler.name = parser.previous;
+	classCompiler.enclosing = currentClass;
+	currentClass = &classCompiler;			// set new class as current
+
+
 	namedVariable(className, false);			// helper function to geenrate code that LOADS a variable with a given name to te stack
 	consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
 	while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
@@ -954,6 +1008,8 @@ static void classDeclaration()
 
 	consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
 	emitByte(OP_POP);			// no longer need the class, pop it
+
+	currentClass = currentClass->enclosing;		// go back to enclosing/main() class
 }
 
 
@@ -1199,6 +1255,12 @@ static void returnStatement()
 	}
 	else
 	{
+		// error in returning from an initializer
+		if (current->type == TYPE_INITIALIZER)
+		{
+			error("Cannot return a value from an initializer");
+		}
+
 		expression();
 		consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
 		emitByte(OP_RETURN);

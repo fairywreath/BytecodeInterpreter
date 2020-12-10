@@ -183,6 +183,8 @@ static void markRoots()
 
 	// compiler also grabs memory; special function only for 'backend' processes
 	markCompilerRoots();		// declared in compiler.h
+
+	markObject((Obj*)vm.initString);		// mark objstring for init 
 }
 
 
