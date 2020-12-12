@@ -1074,18 +1074,19 @@ static void classDeclaration()
 			error("Cannot inherit class from itself");
 		}
 		
+		/* super classes
+		- create new lexical scope to ensure that if we declare two classes in the same scope, each has a different
+		local slot to store the superclasses
+		*/
+		beginScope();
+		addLocal(syntheticToken("super"));
+		defineVariable(0);
+
 		namedVariable(className, false);
 		emitByte(OP_INHERIT);
 		classCompiler.hasSuperclass = true;
 	}
 
-	/* super classes
-	- create new lexical scope to ensure that if we declare two classes in the same scope, each has a different
-	local slot to store the superclasses
-	*/
-	beginScope();
-	addLocal(syntheticToken("super"));
-	defineVariable(0);
 
 	namedVariable(className, false);			// helper function to geenrate code that LOADS a variable with a given name to te stack
 
