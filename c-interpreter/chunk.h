@@ -59,6 +59,10 @@ typedef enum
 	OP_METHOD,
 	OP_INVOKE,
 
+	OP_INHERIT,			// class inheritance
+	OP_GET_SUPER,		// for superclasses
+	OP_SUPER_INVOKE,
+
 	OP_RETURN,		// means return from current function
 } OpCode;			// basically a typdef call to an enum
 					// in C, you cannot have enums called simply by their rvalue 'string' names, use typdef to define them

@@ -757,6 +757,47 @@ READ STRING:
 				break;
 			}
 
+			case OP_INHERIT:
+			{
+				Value parent = peek(1);		// parent class from 2nd top of the stack
+
+				// ensure that parent identifier is a class
+				if (!IS_CLASS(parent))
+				{
+					runtimeError("Parent identifier is not a class.");
+					return INTERPRET_RUNTIME_ERROR;
+				}
+
+				ObjClass* child = AS_CLASS(peek(0));		// child class at the top of the stack
+				tableAddAll(&AS_CLASS(parent)->methods, &child->methods);	// add all methods from parent to child table
+				pop();				// pop the child class
+				break;
+			}
+
+			case OP_GET_SUPER:
+			{
+				ObjString* name = READ_STRING();		// get method name/identifier
+				ObjClass* parent = AS_CLASS(pop());		// class identifier is at the top of the stack
+				if (!bindMethod(parent, name))			// if binding fails
+				{
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				break;
+			}
+
+			case OP_SUPER_INVOKE:		// super calls optimization
+			{
+				ObjString* method = READ_STRING();
+				int count = READ_BYTE();
+				ObjClass* parent = AS_CLASS(pop());
+				if (!invokeFromClass(parent, method, count))
+				{
+					return INTERPRET_RUNTIME_ERROR;
+				}
+				frame = &vm.frames[vm.frameCount - 1];
+				break;
+			}
+
 			case OP_RETURN:				
 			{
 				Value result = pop();	// if function returns a value, value will beon top of the stack

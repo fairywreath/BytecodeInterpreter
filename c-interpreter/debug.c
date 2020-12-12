@@ -185,6 +185,16 @@ int disassembleInstruction(Chunk* chunk, int offset)
 	case OP_CLASS:
 		return constantInstruction("OP_CLASS", chunk, offset);
 
+	case OP_INHERIT:
+		return simpleInstruction("OP_INEHEIRT", offset);
+
+
+	case OP_GET_SUPER:				// class inheritance
+		return constantInstruction("OP_GET_SUPER", chunk, offset);
+
+	case OP_SUPER_INVOKE:
+		return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
+
 	case OP_RETURN:
 		return simpleInstruction("OP_RETURN", offset);		// dispatch to a utility function to display it
 

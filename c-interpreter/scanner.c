@@ -203,6 +203,7 @@ static TokenType identifierType()
 			{
 			case 'a': return checkKeyword(2, 3, "lse", TOKEN_FALSE);	// starts from 2 not 3, as first letter is already an f
 			case 'o': return checkKeyword(2, 1, "r", TOKEN_FOR);
+			case 'r': return checkKeyword(2, 2, "om", TOKEN_FROM);
 			case 'u': return checkKeyword(2, 1, "n", TOKEN_FUN);
 			}
 		}
