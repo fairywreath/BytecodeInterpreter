@@ -30,6 +30,12 @@ typedef enum
 	// class inheritance
 	TOKEN_FROM,
 
+	// space tokens
+	TOKEN_SPACE, TOKEN_TAB, TOKEN_NEWLINE,
+
+	// none, for line skipping
+	TOKEN_NONE,
+
 	TOKEN_ERROR,
 	TOKEN_EOF
 } TokenType;

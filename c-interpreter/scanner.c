@@ -217,7 +217,8 @@ static TokenType identifierType()
 			case 'a': return checkKeyword(2, 3, "lse", TOKEN_FALSE);	// starts from 2 not 3, as first letter is already an f
 			case 'o': return checkKeyword(2, 1, "r", TOKEN_FOR);
 			case 'r': return checkKeyword(2, 2, "om", TOKEN_FROM);
-			case 'u': return checkKeyword(2, 1, "n", TOKEN_FUN);
+			case 'n': return checkKeyword(2, 0, "", TOKEN_FUN);
+			case 'u': return checkKeyword(2, 6, "nction", TOKEN_FUN);
 			}
 		}
 //	case 'i': return checkKeyword(1, 1, "f", TOKEN_IF);
@@ -304,7 +305,7 @@ static Token string()
 // reading the char, and return a token
 Token scanToken()
 {
-	skipWhiteSpace();
+//	skipWhiteSpace();
 
 	scanner.start = scanner.current;		// reset the scanner to current
 
@@ -333,6 +334,10 @@ Token scanToken()
 	case '+': return makeToken(TOKEN_PLUS);
 	case '*': return makeToken(TOKEN_STAR);
 	case '/': return makeToken(TOKEN_SLASH);
+
+	case ' ': return makeToken(TOKEN_SPACE);
+	case '\t': return makeToken(TOKEN_TAB);
+	case '\n': return makeToken(TOKEN_NEWLINE);
 
 		// for two characters
 	case '!':

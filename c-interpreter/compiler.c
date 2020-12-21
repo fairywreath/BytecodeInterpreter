@@ -161,6 +161,7 @@ static void errorAtCurrent(const char* message)			// manually provide the messag
 
 
 /* main compile functions */
+
 // pump the compiler, basically go to / 'read' the next token, a SINGLE token
 static void advance()
 {
@@ -169,11 +170,38 @@ static void advance()
 	for (;;)
 	{
 		parser.current = scanToken();		// gets next token, stores it for later use(the next scan) 
+
+		if (parser.current.type == TOKEN_SPACE || parser.current.type == TOKEN_TAB
+			|| parser.current.type == TOKEN_NEWLINE)
+		{
+			continue;
+		}
+
 		if (parser.current.type != TOKEN_ERROR) break;			// if error is not found break
 
 		errorAtCurrent(parser.current.start);			// start is the location/pointer of the token source code
 	}
 }
+
+
+// advance while skipping the given parameter, give none to skip nothing
+static void advanceWhileSkipping(TokenType type)
+{
+	parser.previous = parser.current;		//  store next parser as current
+
+	for (;;)
+	{
+		parser.current = scanToken();		// gets next token, stores it for later use(the next scan) 
+
+		if (parser.current.type == type)
+			continue;
+
+		if (parser.current.type != TOKEN_ERROR) break;			// if error is not found break
+
+		errorAtCurrent(parser.current.start);			// start is the location/pointer of the token source code
+	}
+}
+
 
 // SIMILAR to advance but there is a validation for a certain type
 // syntax error comes from here, where it is known/expected what the next token will be
