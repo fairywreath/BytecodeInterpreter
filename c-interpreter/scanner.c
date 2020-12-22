@@ -168,7 +168,7 @@ static TokenType identifierType()
 			}
 		}
 	}
-	
+	case 'b': return checkKeyword(1, 4, "reak", TOKEN_BREAK);
 	case 'c':
 	{
 		if (scanner.current - scanner.start > 1)
@@ -177,6 +177,7 @@ static TokenType identifierType()
 			{
 			case 'a': return checkKeyword(2, 2, "se", TOKEN_CASE);
 			case 'l': return checkKeyword(2, 3, "ass", TOKEN_CLASS);
+			case 'o': return checkKeyword(2, 6, "ntinue", TOKEN_CONTINUE);
 			}
 		}
 	}
@@ -221,7 +222,6 @@ static TokenType identifierType()
 			case 'u': return checkKeyword(2, 6, "nction", TOKEN_FUN);
 			}
 		}
-//	case 'i': return checkKeyword(1, 1, "f", TOKEN_IF);
 	case 'i':
 		if (scanner.current - scanner.start > 1)
 		{
@@ -249,7 +249,16 @@ static TokenType identifierType()
 		{
 			switch (scanner.start[1])
 			{
-			case 'h': return checkKeyword(2, 2, "is", TOKEN_THIS);
+			//case 'h': return checkKeyword(2, 2, "is", TOKEN_THIS);
+			case 'h':
+				if (scanner.current - scanner.start > 2)	// check if there is a third letter
+				{
+					switch (scanner.start[2])
+					{
+					case 'e': return checkKeyword(3, 1, "n", TOKEN_THEN);
+					case 'i': return checkKeyword(3, 1, "s", TOKEN_THIS);			// already matched
+					}
+				}
 			case 'r': return checkKeyword(2, 2, "ue", TOKEN_TRUE);
 			}
 		}
@@ -305,7 +314,7 @@ static Token string()
 // reading the char, and return a token
 Token scanToken()
 {
-//	skipWhiteSpace();
+	skipWhiteSpace();
 
 	scanner.start = scanner.current;		// reset the scanner to current
 
@@ -334,10 +343,6 @@ Token scanToken()
 	case '+': return makeToken(TOKEN_PLUS);
 	case '*': return makeToken(TOKEN_STAR);
 	case '/': return makeToken(TOKEN_SLASH);
-
-	case ' ': return makeToken(TOKEN_SPACE);
-	case '\t': return makeToken(TOKEN_TAB);
-	case '\n': return makeToken(TOKEN_NEWLINE);
 
 		// for two characters
 	case '!':

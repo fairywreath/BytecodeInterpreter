@@ -100,6 +100,19 @@ typedef struct Compiler		// give name to struct itself(the name comes after), on
 	int localCount;					// tracks amount of locals in a scope
 	Upvalue upvalues[UINT8_COUNT];
 	int scopeDepth;					// number of scopes/blocks surrounding the code
+
+	// for loop breaks and continues
+	int loopCountTop;
+	int* continueJumps;
+	int loopJumpCapacity;
+	
+	int* breakJumps;
+
+	// for patching all break statements
+	int breakPatchJumps[UINT8_COUNT][UINT8_COUNT];
+	int breakJumpCounts[UINT8_COUNT];
+	bool currentHasBreak;			// flagging for patching break values
+
 } Compiler;
 
 
@@ -170,12 +183,6 @@ static void advance()
 	for (;;)
 	{
 		parser.current = scanToken();		// gets next token, stores it for later use(the next scan) 
-
-		if (parser.current.type == TOKEN_SPACE || parser.current.type == TOKEN_TAB
-			|| parser.current.type == TOKEN_NEWLINE)
-		{
-			continue;
-		}
 
 		if (parser.current.type != TOKEN_ERROR) break;			// if error is not found break
 
@@ -349,12 +356,23 @@ static void initCompiler(Compiler* compiler, FunctionType type)
 		local->name.start = "";
 		local->name.length = 0;
 	}
+
+	// for loop scopes, for break and continue statements
+	compiler->loopCountTop = -1;
+	compiler->loopJumpCapacity = 4;
+	compiler->continueJumps = ALLOCATE(int, 4);
+	compiler->breakJumps = ALLOCATE(int, 4);
+
+	compiler->currentHasBreak = false;
 }
 
 static ObjFunction* endCompiler()
 {
 	emitReturn();
 	ObjFunction* function = current->function;
+
+	FREE(int, current->continueJumps);
+	FREE(int, current->breakJumps);
 
 	// for debugging
 #ifdef DEBUG_PRINT_CODE
@@ -395,6 +413,22 @@ static void endScope()
 	}
 }
 
+// loop enclosing
+static void beginLoopScope()
+{
+	current->loopCountTop++;
+}
+
+static void endLoopScope()
+{
+	if (current->currentHasBreak)
+	{
+		current->breakJumpCounts[current->loopCountTop] = 0;
+		current->currentHasBreak = false;		// reset to false
+	}
+
+	current->loopCountTop--;
+}
 
 
 /* forwad declaration of main functions */
@@ -1169,88 +1203,15 @@ static void expressionStatement()
 	emitByte(OP_POP);
 }
 
-
-static void forStatement()
-{
-	beginScope();			// for possible variable declarations in clause
-	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
-	
-	// initializer clause
-	if (match(TOKEN_SEMICOLON))
-	{
-		// no initializer
-	}
-	else if (match(TOKEN_VAR))
-	{
-		varDeclaration();			// for clause scope only
-	}
-	else 
-	{
-		expressionStatement();
-	}
-
-
-	int loopStart = currentChunk()->count;
-	
-	//  the condition clause
-	/* CONDITION CLAUSE
-	1. If false, pop the recently calculated expression and skip the loop
-	2. if true, go to the body; see increment clause below
-	*/
-	int exitJump = -1;
-	if (!match(TOKEN_SEMICOLON))
-	{
-		expression();
-		consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
-
-		// jump out of loop if condition is false
-		exitJump = emitJump(OP_JUMP_IF_FALSE);
-		emitByte(OP_POP);				// still need to figure this out, most likely just deleting 'temporary' constants in the scope
-	}
-
-	// the increment clause
-	if (!match(TOKEN_RIGHT_PAREN))		// if there is something else before the terminating ')'
-	{
-		/*	INCEREMENT CLAUSE
-		1. from the condition clause, first jump OVER the increment, to the body
-		2. in the body, run the body
-		3. jump BACK to the increment and run it
-		4. from the increment jump BACK to the CONDITION clause, back to the cycle
-		*/
-		int bodyJump = emitJump(OP_JUMP);		// jump the increment clause
-	
-		int incrementStart = currentChunk()->count;		// starting index for increment
-		expression();			// run the for expression
-		emitByte(OP_POP);		// pop expression constant
-		consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
-
-		// running the loop
-		emitLoop(loopStart);		// goes back to the start of the CONDITION clause of the for loop
-		loopStart = incrementStart;
-		patchJump(bodyJump);
-	}
-
-	statement();
-
-	emitLoop(loopStart);
-
-	// patch the jump in the loop body
-	if (exitJump != -1)
-	{
-		patchJump(exitJump);
-		emitByte(OP_POP);		// only pop when THERE EXISTS A CONDITION from the clause
-	}
-
-	endScope();
-}
-
 // if method
 static void ifStatement()
 {
-	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+//	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
 	expression();													// compile the expression statment inside; parsePrecedence()
 	// after compiling expression above conditon value will be left at the top of the stack
-	consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+//	consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+	consume(TOKEN_THEN, "Missing 'then' keyword after if expression.");
 
 	// gives an operand on how much to offset the ip; how many bytes of code to skip
 	// if falsey, simply adjusts the ip by that amount
@@ -1258,6 +1219,8 @@ static void ifStatement()
 	// insert to opcode the then branch statment first, then get offset
 	int thenJump = emitJump(OP_JUMP_IF_FALSE);	/* this gets distance */
 
+
+	emitByte(OP_POP);	// pop then
 
 	/* use BACKPATCHING
 	- emit jump first with a placeholder offset, and get how far to jump
@@ -1271,7 +1234,7 @@ static void ifStatement()
 	int elseJump = emitJump(OP_JUMP);			// need to jump at least 'twice' with an else statement
 												// if the original statement is  true, then skip the the else statement
 
-	emitByte(OP_POP);		// if then statment is run; pop the expression inside () after if
+		// if then statment is run; pop the expression inside () after if
 	patchJump(thenJump);	/* this actually jumps */
 
 	emitByte(OP_POP);		// if else statment is run; pop the expression inside () after if
@@ -1290,9 +1253,7 @@ static void ifStatement()
 
 static void switchStatement()
 {
-	//printf("\nSwitch read \n");
-
-	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+	// consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
 	if (!check(TOKEN_IDENTIFIER))	// check next token
 	{
 		errorAtCurrent("Expect identifier after switch.");
@@ -1300,10 +1261,8 @@ static void switchStatement()
 
 	// if no error, consume the identifier
 	expression();
-
-	consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch variable.");
-	consume(TOKEN_COLON, "Expect ':' after switch declaration.");
-	consume(TOKEN_CASE, "Expect at lest 1 case after switch declaration.");
+	consume(TOKEN_LEFT_BRACE, "Expect '{' after switch identifier.");
+	consume(TOKEN_CASE, "Expect at least 1 case after switch declaration.");
 
 	/* to store  opcode offsets */
 	uint8_t casesCount = -1;
@@ -1357,6 +1316,8 @@ static void switchStatement()
 		
 	emitByte(OP_POP);			// pop switch constant
 	FREE_ARRAY(int, casesOffset, capacity);
+
+	consume(TOKEN_RIGHT_BRACE, "Expect '}' at the end of switch statement");
 }
 
 
@@ -1391,23 +1352,188 @@ static void returnStatement()
 	}
 }
 
+static void forStatement()
+{
+	beginScope();			// for possible variable declarations in clause
+
+	beginLoopScope();
+
+	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+
+	// initializer clause
+	if (match(TOKEN_SEMICOLON))
+	{
+		// no initializer
+	}
+	else if (match(TOKEN_VAR))
+	{
+		varDeclaration();			// for clause scope only
+	}
+	else
+	{
+		expressionStatement();
+	}
+
+	// for for/while loops, loop starts here, with currenChunk()->count
+	int loopStart = currentChunk()->count;
+
+	//  the condition clause
+	/* CONDITION CLAUSE
+	1. If false, pop the recently calculated expression and skip the loop
+	2. if true, go to the body; see increment clause below
+	*/
+	int exitJump = -1;
+	if (!match(TOKEN_SEMICOLON))
+	{
+		expression();
+		consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+
+		// jump out of loop if condition is false
+		exitJump = emitJump(OP_JUMP_IF_FALSE);
+		emitByte(OP_POP);				// still need to figure this out, most likely just deleting 'temporary' constants in the scope
+	}
+
+	// the increment clause
+	if (!match(TOKEN_RIGHT_PAREN))		// if there is something else before the terminating ')'
+	{
+		/*	INCEREMENT CLAUSE
+		1. from the condition clause, first jump OVER the increment, to the body
+		2. in the body, run the body
+		3. jump BACK to the increment and run it
+		4. from the increment jump BACK to the CONDITION clause, back to the cycle
+		*/
+
+		// for continue
+		
+
+		int bodyJump = emitJump(OP_JUMP);		// jump the increment clause
+
+		int incrementStart = currentChunk()->count;		// starting index for increment
+
+		// set continue jump here, right after the increment statement
+		current->continueJumps[current->loopCountTop] = currentChunk()->count;
+
+		expression();			// run the for expression
+		emitByte(OP_POP);		// pop expression constant
+		consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+
+		// running the loop
+		emitLoop(loopStart);		// goes back to the start of the CONDITION clause of the for loop
+		loopStart = incrementStart;
+		patchJump(bodyJump);
+	}
+
+	statement();		// running the code inside the loop
+
+	emitLoop(loopStart);
+
+	// patch the jump in the loop body
+	if (exitJump != -1)
+	{
+		patchJump(exitJump);
+		emitByte(OP_POP);		// only pop when THERE EXISTS A CONDITION from the clause
+	}
+
+	if (current->currentHasBreak)
+	{
+		for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
+		{
+			patchJump(current->breakPatchJumps[current->loopCountTop][i]);
+			printf("\nPatch Break Jump: %d\n", current->breakPatchJumps[current->loopCountTop][i]);
+		}
+	}
+
+	endLoopScope();
+
+	endScope();
+}
+
 static void whileStatement()
 {
 	int loopStart = currentChunk()->count;		// index where the statement to loop starts
+	beginLoopScope();
 
-	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while.");
+	current->continueJumps[current->loopCountTop] = currentChunk()->count;
+
+	printf("currchunk count: %d\n", loopStart);
+//	printf("curr continue count: %d\n", current->continueJumps[current->loopCountTop]);
+
+//	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while.");
 	expression();
-	consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+//	consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
 	int exitJump = emitJump(OP_JUMP_IF_FALSE);			// skip stament if condition is false
 
 	emitByte(OP_POP);			// pop the last expression(true or false)
+	
 	statement();
 
 	emitLoop(loopStart);		// method to 'loop' the instruction
 
 	patchJump(exitJump);
+
 	emitByte(OP_POP);
+
+	if (current->currentHasBreak)
+	{
+		for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
+		{
+			patchJump(current->breakPatchJumps[current->loopCountTop][i]);
+		}
+	}
+
+	endLoopScope();
+}
+
+static void breakStatement()
+{
+	if (current->loopCountTop < 0)
+	{
+		error("Break statement must be enclosed in a loop");
+		return;
+	}
+
+	// set has break statement if not yet set, first statement
+	if (!current->currentHasBreak)
+	{
+		current->currentHasBreak = true;
+		current->breakJumpCounts[current->loopCountTop] = 1;
+	}
+	else		// if already set increment the count
+	{
+		current->breakJumpCounts[current->loopCountTop]++;
+	}
+
+	int breakJump = emitJump(OP_JUMP);
+
+	printf("\nStart Break Jump: %d\n", breakJump);
+
+	int loopDepth = current->loopCountTop;
+	int breakAmount = current->breakJumpCounts[loopDepth];
+	current->breakPatchJumps[current->loopCountTop][breakAmount - 1] = breakJump;
+
+	consume(TOKEN_SEMICOLON, "Expect ';' after break.");
+}
+
+
+static void continueStatement()
+{
+	if (current->loopCountTop < 0)
+	{
+		error("Continue statement must be enclosed in a loop");
+		return;
+	}
+
+	if (current->loopCountTop == current->loopJumpCapacity)
+	{
+		int oldCapacity = current->loopJumpCapacity;
+		current->loopJumpCapacity = GROW_CAPACITY(oldCapacity);
+		current->breakJumps = GROW_ARRAY(int, current->breakJumps, oldCapacity, current->loopJumpCapacity);
+	}
+
+	emitLoop(current->continueJumps[current->loopCountTop]);
+
+	consume(TOKEN_SEMICOLON, "Expect ';' after continue.");
 }
 
 static void synchronize()
@@ -1462,7 +1588,7 @@ static void declaration()
 	if (parser.panicMode) synchronize();		// for errors
 }
 
-static void statement( )					// either an expression or a print
+static void statement()					// either an expression or a print
 {
 
 	if (match(TOKEN_PRINT))			
@@ -1484,6 +1610,14 @@ static void statement( )					// either an expression or a print
 	else if (match(TOKEN_SWITCH))
 	{
 		switchStatement();
+	}
+	else if (match(TOKEN_BREAK))
+	{
+		breakStatement();
+	}
+	else if (match(TOKEN_CONTINUE))
+	{
+		continueStatement();
 	}
 	else if (match(TOKEN_IF))
 	{

@@ -147,7 +147,6 @@
     <ClCompile Include="memory.c" />
     <ClCompile Include="object.c" />
     <ClCompile Include="scanner.c" />
-    <ClCompile Include="trie.c" />
     <ClCompile Include="value.c" />
     <ClCompile Include="virtualm.c" />
   </ItemGroup>
@@ -160,7 +159,6 @@
     <ClInclude Include="memory.h" />
     <ClInclude Include="object.h" />
     <ClInclude Include="scanner.h" />
-    <ClInclude Include="trie.h" />
     <ClInclude Include="value.h" />
     <ClInclude Include="virtualm.h" />
   </ItemGroup>

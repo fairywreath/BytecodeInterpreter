@@ -45,9 +45,6 @@
     <ClCompile Include="hasht.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="trie.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -78,9 +75,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="hasht.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="trie.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
