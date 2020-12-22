@@ -15,7 +15,7 @@
 #define DEBUG_PRINT_CODE
 
 // execution tracing of the VM
-#define DEBUG_TRACE_EXECUTION
+// #define DEBUG_TRACE_EXECUTION
 
 
 // diagnostic tools for garbage collector	

@@ -101,17 +101,14 @@ typedef struct Compiler		// give name to struct itself(the name comes after), on
 	Upvalue upvalues[UINT8_COUNT];
 	int scopeDepth;					// number of scopes/blocks surrounding the code
 
-	// for loop breaks and continues
+	// for loop breaks and continues, loop enclosing
 	int loopCountTop;
 	int* continueJumps;
-	int loopJumpCapacity;
-	
-	int* breakJumps;
+	int continueJumpCapacity;			// only for continue jumpbs
 
 	// for patching all break statements
 	int breakPatchJumps[UINT8_COUNT][UINT8_COUNT];
 	int breakJumpCounts[UINT8_COUNT];
-	bool currentHasBreak;			// flagging for patching break values
 
 } Compiler;
 
@@ -359,11 +356,11 @@ static void initCompiler(Compiler* compiler, FunctionType type)
 
 	// for loop scopes, for break and continue statements
 	compiler->loopCountTop = -1;
-	compiler->loopJumpCapacity = 4;
+	compiler->continueJumpCapacity = 4;
 	compiler->continueJumps = ALLOCATE(int, 4);
-	compiler->breakJumps = ALLOCATE(int, 4);
 
-	compiler->currentHasBreak = false;
+	// use memset to initialize array to 0
+	memset(compiler->breakJumpCounts, 0, UINT8_COUNT * sizeof(compiler->breakJumpCounts[0]));
 }
 
 static ObjFunction* endCompiler()
@@ -372,7 +369,7 @@ static ObjFunction* endCompiler()
 	ObjFunction* function = current->function;
 
 	FREE(int, current->continueJumps);
-	FREE(int, current->breakJumps);
+
 
 	// for debugging
 #ifdef DEBUG_PRINT_CODE
@@ -421,15 +418,17 @@ static void beginLoopScope()
 
 static void endLoopScope()
 {
-	if (current->currentHasBreak)
-	{
+	if (current->breakJumpCounts[current->loopCountTop] > 0)
 		current->breakJumpCounts[current->loopCountTop] = 0;
-		current->currentHasBreak = false;		// reset to false
-	}
 
 	current->loopCountTop--;
 }
 
+// mark current chunk for continue jump
+static void markContinueJump()
+{
+	current->continueJumps[current->loopCountTop] = currentChunk()->count;
+}
 
 /* forwad declaration of main functions */
 static void expression();
@@ -1411,7 +1410,7 @@ static void forStatement()
 		int incrementStart = currentChunk()->count;		// starting index for increment
 
 		// set continue jump here, right after the increment statement
-		current->continueJumps[current->loopCountTop] = currentChunk()->count;
+		markContinueJump();
 
 		expression();			// run the for expression
 		emitByte(OP_POP);		// pop expression constant
@@ -1434,14 +1433,13 @@ static void forStatement()
 		emitByte(OP_POP);		// only pop when THERE EXISTS A CONDITION from the clause
 	}
 
-	if (current->currentHasBreak)
+	
+	// patch break jumps, if available
+	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
 	{
-		for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
-		{
-			patchJump(current->breakPatchJumps[current->loopCountTop][i]);
-			printf("\nPatch Break Jump: %d\n", current->breakPatchJumps[current->loopCountTop][i]);
-		}
+		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
 	}
+
 
 	endLoopScope();
 
@@ -1453,14 +1451,11 @@ static void whileStatement()
 	int loopStart = currentChunk()->count;		// index where the statement to loop starts
 	beginLoopScope();
 
-	current->continueJumps[current->loopCountTop] = currentChunk()->count;
+	// set jump for potential continue statement
+	markContinueJump();
 
-	printf("currchunk count: %d\n", loopStart);
-//	printf("curr continue count: %d\n", current->continueJumps[current->loopCountTop]);
-
-//	consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while.");
 	expression();
-//	consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
 
 	int exitJump = emitJump(OP_JUMP_IF_FALSE);			// skip stament if condition is false
 
@@ -1474,12 +1469,10 @@ static void whileStatement()
 
 	emitByte(OP_POP);
 
-	if (current->currentHasBreak)
+	// patch break jumps, if available
+	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
 	{
-		for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
-		{
-			patchJump(current->breakPatchJumps[current->loopCountTop][i]);
-		}
+		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
 	}
 
 	endLoopScope();
@@ -1493,21 +1486,13 @@ static void breakStatement()
 		return;
 	}
 
-	// set has break statement if not yet set, first statement
-	if (!current->currentHasBreak)
+	if (++current->breakJumpCounts[current->loopCountTop] > UINT8_COUNT)
 	{
-		current->currentHasBreak = true;
-		current->breakJumpCounts[current->loopCountTop] = 1;
-	}
-	else		// if already set increment the count
-	{
-		current->breakJumpCounts[current->loopCountTop]++;
+		error("Too many break statments in one loop");
+		return;
 	}
 
 	int breakJump = emitJump(OP_JUMP);
-
-	printf("\nStart Break Jump: %d\n", breakJump);
-
 	int loopDepth = current->loopCountTop;
 	int breakAmount = current->breakJumpCounts[loopDepth];
 	current->breakPatchJumps[current->loopCountTop][breakAmount - 1] = breakJump;
@@ -1524,11 +1509,11 @@ static void continueStatement()
 		return;
 	}
 
-	if (current->loopCountTop == current->loopJumpCapacity)
+	if (current->loopCountTop == current->continueJumpCapacity)
 	{
-		int oldCapacity = current->loopJumpCapacity;
-		current->loopJumpCapacity = GROW_CAPACITY(oldCapacity);
-		current->breakJumps = GROW_ARRAY(int, current->breakJumps, oldCapacity, current->loopJumpCapacity);
+		int oldCapacity = current->continueJumpCapacity;
+		current->continueJumpCapacity = GROW_CAPACITY(oldCapacity);
+		current->continueJumps = GROW_ARRAY(int, current->continueJumps, oldCapacity, current->continueJumpCapacity);
 	}
 
 	emitLoop(current->continueJumps[current->loopCountTop]);
