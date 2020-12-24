@@ -697,6 +697,26 @@ READ STRING:
 				break;
 			}
 
+			case OP_LOOP_IF_FALSE:
+			{
+				uint16_t offset = READ_SHORT();				// offset already put in the stack
+				// bool state is at the top of the stack
+				// if false loop back
+				if (isFalsey(peek(0))) frame->ip -= offset;
+				pop();			// pop the true/false
+				break;
+			}
+
+			case OP_LOOP_IF_TRUE:
+			{
+				uint16_t offset = READ_SHORT();				// offset already put in the stack
+				// bool state is at the top of the stack
+				// if not false loop back
+				if (!isFalsey(peek(0))) frame->ip -= offset;
+				pop();			// pop the true/false
+				break;
+			}
+
 			// a callstack to a funcion has the form of function name, param1, param2...
 			// the top level code, or caller, also has the same function name, param1, param2... in the right order
 			case OP_CALL:

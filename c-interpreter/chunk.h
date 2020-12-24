@@ -53,7 +53,11 @@ typedef enum
 	OP_JUMP,
 	OP_JUMP_IF_FALSE,		// takes a 16-bit operand
 	OP_CALL,
+
 	OP_LOOP, 
+	OP_LOOP_IF_FALSE,		// repeat until
+	OP_LOOP_IF_TRUE,	// do while
+
 	OP_CLOSURE,
 	OP_CLASS,
 	OP_METHOD,
