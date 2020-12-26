@@ -53,6 +53,7 @@ typedef struct
 #define IS_OBJ(value)	((value).type == VAL_OBJ)
 
 
+
 // from VALUE STRUCT to RAW  C nicely used in printing
 // also for comparisons -> use values ALREADY CONVERTED to Value struct union to raw C
 #define AS_BOOL(value)		((value).as.boolean)

@@ -445,6 +445,15 @@ static void markContinueJump()
 	current->continueJumps[current->loopCountTop] = currentChunk()->count;
 }
 
+// patch available break jumps
+static void patchBreakJumps()
+{
+	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
+	{
+		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
+	}
+}
+
 /* forwad declaration of main functions */
 static void expression();
 static void statement();
@@ -686,6 +695,7 @@ static void binary(bool canAssign)
 	case TOKEN_MINUS:	emitByte(OP_SUBTRACT); break;
 	case TOKEN_STAR:	emitByte(OP_MULTIPLY); break;
 	case TOKEN_SLASH:	emitByte(OP_DIVIDE); break;
+	case TOKEN_MODULO:  emitByte(OP_MODULO); break;
 	default:
 		return;			// unreachable
 	}
@@ -940,6 +950,7 @@ ParseRule rules[] =
 	[TOKEN_SEMICOLON]		= {NULL,     NULL,   PREC_NONE},
 	[TOKEN_SLASH]			= {NULL,     binary, PREC_FACTOR},
 	[TOKEN_STAR]			= {NULL,     binary, PREC_FACTOR},
+	[TOKEN_MODULO]			= {NULL,	 binary, PREC_FACTOR},
 	[TOKEN_BANG]			= {unary,     NULL,   PREC_NONE},
 	[TOKEN_BANG_EQUAL]		= {NULL,     binary,   PREC_EQUALITY},	// equality precedence
 	[TOKEN_EQUAL]			= {NULL,     binary,   PREC_COMPARISON},		// comaprison precedence
@@ -1448,16 +1459,10 @@ static void forStatement()
 		emitByte(OP_POP);		// only pop when THERE EXISTS A CONDITION from the clause
 	}
 
-	
 	// patch break jumps, if available
-	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
-	{
-		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
-	}
-
-
+	patchBreakJumps();
+	
 	endLoopScope();
-
 	endScope();
 }
 
@@ -1485,10 +1490,7 @@ static void whileStatement()
 	emitByte(OP_POP);
 
 	// patch break jumps, if available
-	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
-	{
-		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
-	}
+	patchBreakJumps();
 
 	endLoopScope();
 }
@@ -1555,10 +1557,7 @@ static void repeatUntilStatement()
 	emitConditionalLoop(loopStart, false);
 
 	// patch possible break jumps
-	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
-	{
-		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
-	}
+	patchBreakJumps();
 
 	endLoopScope();
 	consume(TOKEN_SEMICOLON, "Expect ';' after until exppression.");
@@ -1582,10 +1581,7 @@ static void doWhileStatement()
 	emitConditionalLoop(loopStart, true);
 
 	// patch possible break jumps
-	for (int i = 0; i < current->breakJumpCounts[current->loopCountTop]; i++)
-	{
-		patchJump(current->breakPatchJumps[current->loopCountTop][i]);
-	}
+	patchBreakJumps();
 
 	endLoopScope();
 	consume(TOKEN_SEMICOLON, "Expect ';' after until exppression.");

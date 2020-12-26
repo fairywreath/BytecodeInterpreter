@@ -445,11 +445,26 @@ READ STRING:
 		push(valueType(a op b));	\
 	} while(false)	\
 
+#define MODULO_OP(valueType, op)	\
+	do	\
+	{	\
+			if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1)))	\
+		{	\
+			runtimeError("Operands must be numbers.");	\
+			return INTERPRET_RUNTIME_ERROR;		\
+		}	\
+	int b = (int)AS_NUMBER(pop());	\
+	int a = (int)AS_NUMBER(pop());	\
+	push(valueType(a op b));	\
+	} while (false)	\
+
+
 	for (;;)
 	{
 	// disassembleInstruction needs an byte offset, do pointer math to convert ip back to relative offset
 	// from the beginning of the chunk (subtract current ip from the starting ip)
 	// IMPORTANT -> only for debugging the VM
+
 #ifdef DEBUG_TRACE_EXECUTION
 		// for stack tracing
 		printf("		");
@@ -522,6 +537,8 @@ READ STRING:
 			case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
 			case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
 			case OP_DIVIDE: BINARY_OP(NUMBER_VAL, /); break;
+
+			case OP_MODULO: MODULO_OP(NUMBER_VAL, %); break;
 
 			case OP_NOT:
 				push(BOOL_VAL(isFalsey(pop())));		// again, pops most recent one from the stack, does the operation on it, and pushes it back

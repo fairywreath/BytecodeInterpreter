@@ -40,6 +40,7 @@ typedef enum
 	OP_SUBTRACT,
 	OP_MULTIPLY,
 	OP_DIVIDE,
+	OP_MODULO,
 
 	// logical, unary
 	OP_NOT,
