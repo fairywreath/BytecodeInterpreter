@@ -41,7 +41,7 @@ a + b;
 ```
 
 ### Control Flow
-#### If sSatements
+#### If Statements
 > 'else if' can be replaced with the 'elf' keyword.
 ```
 if condition then
