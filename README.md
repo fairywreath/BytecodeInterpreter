@@ -32,6 +32,14 @@ string is "notString";        // false
 false = !true;    // true
 ```
 
+### Arithmetic Operators
+> Fei supports the 4 main binary operators as well as the modulo operator
+```
+a + b;
+24 / 12;
+78 % 13;
+```
+
 ### Control Flow
 #### If sSatements
 > 'else if' can be replaced with the 'elf' keyword.
