@@ -33,8 +33,8 @@ false = !true;    // true
 ```
 
 ### Control Flow
-#### If statements
-> 'else if' can be replaced with the 'elf' keyword/
+#### If sSatements
+> 'else if' can be replaced with the 'elf' keyword.
 ```
 if condition then
 {
@@ -49,8 +49,8 @@ else
   print "else statement";
 }
 ```
-#### While and For loops
-> Fei inherits while and for loops from C
+#### While and For Loops
+> Fei inherits while and for loops from C.
 ```
 while condition
 {
@@ -62,8 +62,8 @@ for (var i = 0; i < 10; i = i + 1)
   print i;
 }
 ```
-#### Do While and Repeat Until
-> Fei also supports do while and repeat until loops. 'do while' loops until the expression is false. 'repeat 'until' loops until the expression is true
+#### Do While and Repeat Until Loops
+> Fei also supports do while and repeat until loops. 'do while' loops until the expression is false. 'repeat 'until' loops until the expression is true.
 ```
 var i assigned 0;
 
@@ -81,7 +81,7 @@ repeat
 ```
 
 #### Switch Statements
-> Switch cases automatically breaks if the condition is met
+> Switch cases automatically breaks if the condition is met.
 ```
 switch variable
 {
@@ -99,7 +99,7 @@ switch variable
 ```
 
 #### Break and Continue Statements
-> All loops support break and continue statements
+> All loops support break and continue statements.
 ```
 while condition
 {
@@ -107,5 +107,63 @@ while condition
     if continueCondition then continue;
 }
 ```
+
+### Functions
+```
+function product(a, b)
+{
+    return a * b;
+}
+
+function printHello()
+{
+    print "Hello";
+}
+
+var prod = product(12, 23);      // 276
+printHello();                    // prints "Hello"
+```
+
+### Classes
+> Fei has a Python-like class system. Constructors are initialize with the 'init' keyword and class members use the 'this' keyword. 
+> The keyword 'from ' used to declare inheritance. The 'super' keyword is used for superclasses.
+
+```
+class ParentClass
+{
+    init(name)
+    {
+        this.name = name;       // assign name to class member 'name'
+    }
+    
+    printName()                 // class methods are initialized without the 'function' keyword
+    {
+        print this.name;        
+    }
+}
+
+ParentClass parent("My name");
+parent.printName();             // prints "My name"
+
+class ChildClass from ParentClass
+{
+    init(name, age)
+    {
+        super.init(name);       // parent constructor
+        this.age = age;
+    }
+    
+    printAge()
+    {
+        print this.age;
+    }
+}
+
+ChildClass child("Your name", 17);
+child.printName();             // prints "Your name"
+child.printAge();              // prints 17
+
+```
+
 
 > Heavily inspired by the Lox Programming Language http://www.craftinginterpreters.com/
