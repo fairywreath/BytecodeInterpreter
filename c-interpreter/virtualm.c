@@ -209,10 +209,13 @@ static bool callValue(Value callee, int argCount)
 			push(result);
 			return true;
 		}
-		default:	// non callable
+		default:
 			break;
 		}
 	}
+
+	runtimeError("Non-function or non-class type is called.");
+	return false;
 }
 
 
@@ -433,31 +436,17 @@ READ STRING:
 // pass in an OPERAOTR as a MACRO
 // valueType is a Value struct
 // first check that both operands are numbers
-#define BINARY_OP(valueType, op)	\
+#define BINARY_OP(valueType, op, downcastType)	\
 	do {	\
 		if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1)))	\
 		{	\
 			runtimeError("Operands must be numbers.");	\
 			return INTERPRET_RUNTIME_ERROR;		\
 		}	\
-		double b = AS_NUMBER(pop());	\
-		double a = AS_NUMBER(pop());	\
+		downcastType b = (downcastType)AS_NUMBER(pop());	\
+		downcastType a = (downcastType)AS_NUMBER(pop());	\
 		push(valueType(a op b));	\
 	} while(false)	\
-
-#define MODULO_OP(valueType, op)	\
-	do	\
-	{	\
-			if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1)))	\
-		{	\
-			runtimeError("Operands must be numbers.");	\
-			return INTERPRET_RUNTIME_ERROR;		\
-		}	\
-	int b = (int)AS_NUMBER(pop());	\
-	int a = (int)AS_NUMBER(pop());	\
-	push(valueType(a op b));	\
-	} while (false)	\
-
 
 	for (;;)
 	{
@@ -523,7 +512,7 @@ READ STRING:
 				else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1)))
 				{
 					// in the book, macro is not used and a new algorithm is used directly
-					BINARY_OP(NUMBER_VAL, +); 		// initialize new Value struct (NUMBER_VAL) here
+					BINARY_OP(NUMBER_VAL, +, double); 		// initialize new Value struct (NUMBER_VAL) here
 				}
 				else		// handle errors dynamically here
 				{
@@ -534,11 +523,11 @@ READ STRING:
 				break;
 			}
 			
-			case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
-			case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
-			case OP_DIVIDE: BINARY_OP(NUMBER_VAL, /); break;
+			case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -, double); break;
+			case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *, double); break;
+			case OP_DIVIDE: BINARY_OP(NUMBER_VAL, /, double); break;
 
-			case OP_MODULO: MODULO_OP(NUMBER_VAL, %); break;
+			case OP_MODULO: BINARY_OP(NUMBER_VAL, %, int); break;
 
 			case OP_NOT:
 				push(BOOL_VAL(isFalsey(pop())));		// again, pops most recent one from the stack, does the operation on it, and pushes it back
@@ -560,8 +549,8 @@ READ STRING:
 				push(BOOL_VAL(valuesEqual(a, b)));
 				break;
 			}
-			case OP_GREATER: BINARY_OP(BOOL_VAL, > ); break;
-			case OP_LESS: BINARY_OP(BOOL_VAL, < ); break;
+			case OP_GREATER: BINARY_OP(BOOL_VAL, > , double); break;
+			case OP_LESS: BINARY_OP(BOOL_VAL, < , double); break;
 
 
 			case OP_PRINT:

@@ -48,7 +48,7 @@ typedef struct
 	// stack to store gray marked Objects for garbage collection
 	int grayCapacity;		
 	int grayCount;
-	Obj** grayStack;			// array of pointers, array of arrays, pointing to a particular subgraph
+	Obj** grayStack;			// array of pointers pointing to a particular subgraph
 
 	// self-adjusting-g-heap, to control frequency of GC, bytesAllocated is the running total
 	size_t bytesAllocated;		// size_t is a 32 bit(integer/4bytes), represents size of an object in bytes
