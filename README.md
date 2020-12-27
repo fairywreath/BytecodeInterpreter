@@ -5,8 +5,9 @@ A bytecode interpreter and virtual machine for Fei, a dynamically typed, high-le
 ## Fei Syntax
 
 ### Variable declarations and assignments
-> var myInt;
-> myInt assigned 10;
-> var myString = "string";
-
+'''
+var myInt;
+myInt assigned 10;
+var myString = "string";
+'''
 Heavily inspired by the Lox Programming Language http://www.craftinginterpreters.com/
