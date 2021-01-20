@@ -10,7 +10,7 @@ The interpreter is composed of three main parts: the scanner/lexer, the compiler
 - Virtual machine: reads bytecode and executes instructions
 
 
-## Fei Language Syntax
+## Language Syntax
 
 ### Console Output
 ```
