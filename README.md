@@ -1,8 +1,16 @@
-# Fei Bytecode Interpreter
+# Bytecode Interpreter
 
 A bytecode interpreter and virtual machine for Fei, a dynamically typed, high-level, object-oriented programming language
 
-## Fei Syntax
+## The Program
+
+The interpreter is composed of three main parts: the scanner/lexer, the compiler and the virtual machine
+- Scanner: converts syntax into tokens
+- Compiler: parses syntax tokens into bytes/opcodes
+- Virtual machine: reads bytecode and executes instructions
+
+
+## Fei Language Syntax
 
 ### Console Output
 ```
@@ -174,4 +182,4 @@ child.printAge();              // prints 17
 ```
 
 
-> Heavily inspired by the Lox Programming Language http://www.craftinginterpreters.com/
+> Inspired by the Lox Programming Language http://www.craftinginterpreters.com/
