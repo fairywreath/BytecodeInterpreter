@@ -2,6 +2,8 @@
 
 A bytecode interpreter and virtual machine for Fei, a dynamically typed, high-level, object-oriented programming language
 
+> Largely implemented/referenced from the Lox Programming Language http://www.craftinginterpreters.com/
+ 
 ## The Program
 
 The interpreter is composed of three main parts: the scanner/lexer, the compiler and the virtual machine
@@ -182,4 +184,4 @@ child.printAge();              // prints 17
 ```
 
 
-> Inspired by the Lox Programming Language http://www.craftinginterpreters.com/
+
