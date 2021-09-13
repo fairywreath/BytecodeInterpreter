@@ -1,6 +1,6 @@
 # Bytecode Interpreter
 
-A bytecode interpreter and virtual machine for Fei, a dynamically typed, high-level, object-oriented programming language
+A bytecode interpreter and virtual machine for a dynamically typed, high-level, object-oriented programming language
 
 > Largely implemented/referenced from the Lox Programming Language http://www.craftinginterpreters.com/
  
